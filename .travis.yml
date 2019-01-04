@@ -13,9 +13,9 @@ jobs:
         - yarn run prettier
         - yarn run tslint
         - yarn run build
-        - yarn test
-        - nyc report --reporter json
-        - 'bash <(curl -s https://codecov.io/bash)'
+        # - yarn test
+        # - nyc report --reporter json
+        # - 'bash <(curl -s https://codecov.io/bash)'
     - stage: release
       script:
         - yarn run build
