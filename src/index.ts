@@ -539,6 +539,7 @@ export async function register(
 
                         // Close connections for removed workspaces
                         const removed = differenceBy(before, after, root => root.uri.toString())
+                        // tslint:disable-next-line no-floating-promises
                         Promise.all(
                             removed.map(async root => {
                                 try {
