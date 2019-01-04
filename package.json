@@ -1,0 +1,71 @@
+{
+  "name": "@sourcegraph/lsp-client",
+  "version": "0.0.0-DEVELOPMENT",
+  "description": "Library that connects Sourcegraph extensions to language servers",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sourcegraph/lsp-client.git"
+  },
+  "files": [
+    "dist"
+  ],
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "test": "mocha --require ts-node/register \"src/**/*.test.ts\"",
+    "semantic-release": "semantic-release",
+    "prettier": "prettier '**/{*.{js?(on),ts?(x),scss},.*.js?(on)}' --write --list-different",
+    "tslint": "tslint -c tslint.json -p tsconfig.json './src/*.ts?(x)' './*.ts?(x)'",
+    "build": "tsc -p .",
+    "watch": "tsc -p . -w"
+  },
+  "commitlint": {
+    "extends": [
+      "@commitlint/config-conventional"
+    ]
+  },
+  "nyc": {
+    "include": [
+      "src/**/*.ts?(x)"
+    ],
+    "exclude": [
+      "**/*.test.ts?(x)"
+    ],
+    "extension": [
+      ".tsx",
+      ".ts"
+    ]
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^7.2.1",
+    "@commitlint/config-conventional": "^7.1.2",
+    "@sourcegraph/prettierrc": "^2.2.0",
+    "@sourcegraph/tsconfig": "^3.0.0",
+    "@sourcegraph/tslint-config": "^12.2.0",
+    "@types/lodash": "^4.14.119",
+    "@types/uuid": "^3.4.4",
+    "husky": "^1.3.1",
+    "mocha": "^5.2.0",
+    "nyc": "^13.1.0",
+    "prettier": "^1.15.3",
+    "semantic-release": "^15.13.1",
+    "tslint": "^5.12.0",
+    "typescript": "^3.2.2"
+  },
+  "dependencies": {
+    "@sourcegraph/vscode-ws-jsonrpc": "^0.0.3-fork",
+    "lodash": "^4.17.11",
+    "rxjs": "^6.3.3",
+    "sourcegraph": "^20.0.0",
+    "type-zoo": "^3.2.1",
+    "uuid": "^3.3.2",
+    "vscode-languageserver-protocol": "^3.14.1",
+    "vscode-languageserver-types": "^3.14.0"
+  },
+  "husky": {
+    "hooks": {
+      "commit-msg": "commitlint -e $HUSKY_GIT_PARAMS"
+    }
+  }
+}
