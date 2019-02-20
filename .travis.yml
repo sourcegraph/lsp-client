@@ -10,12 +10,11 @@ jobs:
   include:
     - stage: test
       script:
-        - yarn run prettier
+        - yarn run prettier-check
         - yarn run tslint
         - yarn run build
-        # - yarn test
-        # - nyc report --reporter json
-        # - 'bash <(curl -s https://codecov.io/bash)'
+        - yarn cover
+        - 'bash <(curl -s https://codecov.io/bash)'
     - stage: release
       script:
         - yarn run build
@@ -27,4 +26,5 @@ stages:
 branches:
   only:
     - master
+    - next
     - /^renovate\//

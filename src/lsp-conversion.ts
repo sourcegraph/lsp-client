@@ -2,17 +2,17 @@ import * as sourcegraph from 'sourcegraph'
 import { WorkspaceFolder } from 'vscode-languageserver-protocol'
 import { Diagnostic, DiagnosticSeverity, Hover, Location, MarkupContent, Range } from 'vscode-languageserver-types'
 
-export function convertRange(range: Range): sourcegraph.Range {
+export function convertRange(sourcegraph: typeof import('sourcegraph'), range: Range): sourcegraph.Range {
     return new sourcegraph.Range(range.start.line, range.start.character, range.end.line, range.end.character)
 }
 
-export function convertHover(hover: Hover | null): sourcegraph.Hover | null {
+export function convertHover(sourcegraph: typeof import('sourcegraph'), hover: Hover | null): sourcegraph.Hover | null {
     if (!hover) {
         return null
     }
     const contents = Array.isArray(hover.contents) ? hover.contents : [hover.contents]
     return {
-        range: hover.range && convertRange(hover.range),
+        range: hover.range && convertRange(sourcegraph, hover.range),
         contents: {
             kind: sourcegraph.MarkupKind.Markdown,
             value: contents
@@ -35,17 +35,23 @@ export function convertHover(hover: Hover | null): sourcegraph.Hover | null {
     }
 }
 
-export const convertLocation = (location: Location): sourcegraph.Location => ({
+export const convertLocation = (
+    sourcegraph: typeof import('sourcegraph'),
+    location: Location
+): sourcegraph.Location => ({
     uri: new sourcegraph.URI(location.uri),
-    range: convertRange(location.range),
+    range: convertRange(sourcegraph, location.range),
 })
 
-export function convertLocations(locationOrLocations: Location | Location[] | null): sourcegraph.Location[] | null {
+export function convertLocations(
+    sourcegraph: typeof import('sourcegraph'),
+    locationOrLocations: Location | Location[] | null
+): sourcegraph.Location[] | null {
     if (!locationOrLocations) {
         return null
     }
     const locations = Array.isArray(locationOrLocations) ? locationOrLocations : [locationOrLocations]
-    return locations.map(convertLocation)
+    return locations.map(location => convertLocation(sourcegraph, location))
 }
 
 const DIAGNOSTIC_COLORS: Readonly<Record<DiagnosticSeverity, string>> = {
@@ -54,12 +60,15 @@ const DIAGNOSTIC_COLORS: Readonly<Record<DiagnosticSeverity, string>> = {
     [DiagnosticSeverity.Warning]: 'var(--success, #ffc107)',
     [DiagnosticSeverity.Hint]: 'var(--secondary, #6c757d)',
 }
-export const convertDiagnosticToDecoration = (diagnostic: Diagnostic): sourcegraph.TextDocumentDecoration => ({
+export const convertDiagnosticToDecoration = (
+    sourcegraph: typeof import('sourcegraph'),
+    diagnostic: Diagnostic
+): sourcegraph.TextDocumentDecoration => ({
     after: {
         color: DIAGNOSTIC_COLORS[diagnostic.severity || DiagnosticSeverity.Hint],
         contentText: diagnostic.message,
     },
-    range: convertRange(diagnostic.range),
+    range: convertRange(sourcegraph, diagnostic.range),
 })
 
 export const toLSPWorkspaceFolder = (root: sourcegraph.WorkspaceRoot): WorkspaceFolder => ({

@@ -1,6 +1,7 @@
 import {
     createMessageConnection,
-    MessageConnection,
+    NotificationType,
+    RequestHandler,
     RequestType,
     toSocket,
     WebSocketMessageReader,
@@ -8,122 +9,65 @@ import {
 } from '@sourcegraph/vscode-ws-jsonrpc'
 import { differenceBy, identity } from 'lodash'
 import * as path from 'path'
-import { from, Subscription, Unsubscribable } from 'rxjs'
-import { concatMap, map, pairwise, startWith } from 'rxjs/operators'
-import { ProgressReporter } from 'sourcegraph'
+import { from, fromEvent, merge, noop, Subject, Subscription, Unsubscribable } from 'rxjs'
+import { filter, map, mapTo, scan, startWith, take } from 'rxjs/operators'
+import { DocumentSelector, ProgressReporter, Subscribable, WorkspaceRoot } from 'sourcegraph'
 import * as uuid from 'uuid'
 import {
     ClientCapabilities,
-    DefinitionRequest,
     Diagnostic,
     DidChangeWorkspaceFoldersNotification,
     DidOpenTextDocumentNotification,
     DidOpenTextDocumentParams,
-    DocumentFilter,
-    DocumentSelector,
-    HoverRequest,
-    ImplementationRequest,
+    DocumentSelector as LSPDocumentSelector,
     InitializeParams,
     InitializeRequest,
     InitializeResult,
-    Location,
     LogMessageNotification,
     MarkupKind,
     PublishDiagnosticsNotification,
-    ReferencesRequest,
     Registration,
     RegistrationRequest,
     ServerCapabilities,
-    StaticRegistrationOptions,
-    TypeDefinitionRequest,
     WorkspaceFolder,
 } from 'vscode-languageserver-protocol'
+import { features } from './features'
 import { Logger, LSP_TO_LOG_LEVEL } from './logging'
-import {
-    convertDiagnosticToDecoration,
-    convertHover,
-    convertLocations,
-    rewriteUris,
-    toLSPWorkspaceFolder,
-} from './lsp-conversion'
+import { convertDiagnosticToDecoration, toLSPWorkspaceFolder } from './lsp-conversion'
 import { WindowProgressClientCapabilities, WindowProgressNotification } from './protocol.progress.proposed'
-
-type RegistrationOptions<T extends RequestType<any, any, any, any>> = Exclude<T['_'], undefined>[3]
 
 type SourcegraphAPI = typeof import('sourcegraph')
 
-export interface ConnectionOptions {
-    progressSuffix?: string
-    serverUrl: URL | string
-    sourcegraph: SourcegraphAPI
-    supportsWorkspaceFolders?: boolean
-    clientToServerURI?: (uri: URL) => URL
-    serverToClientURI?: (uri: URL) => URL
-    afterInitialize?: (initializeResult: InitializeResult) => Promise<void>
-    logger?: Logger
-}
+const registrationId = (staticOptions: any): string =>
+    (staticOptions && typeof staticOptions.id === 'string' && staticOptions.id) || uuid.v1()
 
-const getStaticRegistrationId = (staticOptions: StaticRegistrationOptions | boolean): string =>
-    (typeof staticOptions !== 'boolean' && staticOptions.id) || uuid.v1()
-
-function staticRegistrationsFromCapabilities(capabilities: ServerCapabilities): Registration[] {
+function staticRegistrationsFromCapabilities(
+    capabilities: ServerCapabilities,
+    defaultSelector: DocumentSelector
+): Registration[] {
     const staticRegistrations: Registration[] = []
-    if (capabilities.hoverProvider) {
-        const registerOptions: RegistrationOptions<typeof HoverRequest.type> = { documentSelector: null }
-        staticRegistrations.push({ method: HoverRequest.type.method, id: uuid.v1(), registerOptions })
-    }
-    if (capabilities.definitionProvider) {
-        const registerOptions: RegistrationOptions<typeof DefinitionRequest.type> = { documentSelector: null }
-        staticRegistrations.push({ method: DefinitionRequest.type.method, id: uuid.v1(), registerOptions })
-    }
-    if (capabilities.typeDefinitionProvider) {
-        const registerOptions: RegistrationOptions<
-            typeof ImplementationRequest.type
-        > = (typeof capabilities.typeDefinitionProvider === 'object' && capabilities.typeDefinitionProvider) || {
-            documentSelector: null,
+    for (const feature of Object.values(features)) {
+        if (capabilities[feature.capabilityName]) {
+            staticRegistrations.push({
+                method: feature.requestType.method,
+                id: registrationId(capabilities[feature.capabilityName]),
+                registerOptions: feature.capabilityToRegisterOptions(
+                    capabilities[feature.capabilityName],
+                    defaultSelector as LSPDocumentSelector
+                ),
+            })
         }
-        staticRegistrations.push({
-            method: ImplementationRequest.type.method,
-            id: getStaticRegistrationId(capabilities.typeDefinitionProvider),
-            registerOptions,
-        })
-    }
-    if (capabilities.implementationProvider) {
-        const registerOptions: RegistrationOptions<
-            typeof ImplementationRequest.type
-        > = (typeof capabilities.implementationProvider === 'object' && capabilities.implementationProvider) || {
-            documentSelector: null,
-        }
-        staticRegistrations.push({
-            method: ImplementationRequest.type.method,
-            id: getStaticRegistrationId(capabilities.implementationProvider),
-            registerOptions,
-        })
-    }
-    if (capabilities.referencesProvider) {
-        const registerOptions: RegistrationOptions<typeof ReferencesRequest.type> = { documentSelector: null }
-        staticRegistrations.push({ method: ReferencesRequest.type.method, id: uuid.v1(), registerOptions })
     }
     return staticRegistrations
 }
 
-function scopeDocumentSelectorToRoot(documentSelector: DocumentSelector | null, rootUri: URL | null): DocumentSelector {
-    if (!documentSelector || documentSelector.length === 0) {
-        documentSelector = [{ pattern: '**' }]
-    }
-    if (!rootUri) {
-        return documentSelector
-    }
-    return documentSelector
-        .map((selector): DocumentFilter => (typeof selector === 'string' ? { language: selector } : selector))
-        .map(selector => ({
-            ...documentSelector,
-            pattern: new URL(selector.pattern || '**', rootUri).href,
-        }))
-}
-
-export interface LSPConnection {
-    sendRequest<P, R>(type: RequestType<P, R, any, any>, params: P): PromiseLike<R>
+export interface LSPConnection extends Unsubscribable {
+    closed: boolean
+    closeEvent: Subscribable<void>
+    sendRequest<P, R>(type: RequestType<P, R, any, any>, params: P): Promise<R>
+    sendNotification<P>(type: NotificationType<P, any>, params: P): void
+    observeNotification<P>(type: NotificationType<P, any>): Subscribable<P>
+    setRequestHandler<P, R>(type: RequestType<P, R, any, any>, handler: RequestHandler<P, R, any>): void
 }
 
 export interface LSPClient extends Unsubscribable {
@@ -137,17 +81,83 @@ export interface LSPClient extends Unsubscribable {
     withConnection<R>(workspaceRoot: URL, fn: (connection: LSPConnection) => Promise<R>): Promise<R>
 }
 
-export async function register(
-    serverUrl: URL | string,
-    sourcegraph: SourcegraphAPI,
-    {
-        clientToServerURI = identity,
-        serverToClientURI = identity,
-        logger = console,
-        progressSuffix = '',
-        supportsWorkspaceFolders,
-    }: ConnectionOptions
-): Promise<LSPClient> {
+export const webSocketTransport = ({
+    serverUrl,
+    logger,
+}: {
+    serverUrl: string | URL
+    logger: Logger
+}) => async (): Promise<LSPConnection> => {
+    const socket = new WebSocket(serverUrl.toString())
+    const event = await merge(fromEvent<Event>(socket, 'open'), fromEvent<Event>(socket, 'error'))
+        .pipe(take(1))
+        .toPromise()
+    if (event.type === 'error') {
+        throw new Error(`The WebSocket to the TypeScript backend at ${serverUrl} could not not be opened`)
+    }
+    const rpcWebSocket = toSocket(socket)
+    const connection = createMessageConnection(
+        new WebSocketMessageReader(rpcWebSocket),
+        new WebSocketMessageWriter(rpcWebSocket),
+        logger
+    )
+    socket.addEventListener('close', event => {
+        logger.warn('WebSocket connection to TypeScript backend closed', event)
+        connection.dispose()
+    })
+    socket.addEventListener('error', event => {
+        logger.error('WebSocket error', event)
+    })
+    const notifications = new Subject<{ method: string; params: any }>()
+    connection.onNotification((method, params) => {
+        notifications.next({ method, params })
+    })
+    connection.listen()
+    return {
+        get closed(): boolean {
+            return socket.readyState === WebSocket.CLOSED || socket.readyState === WebSocket.CLOSING
+        },
+        closeEvent: fromEvent<Event>(socket, 'close').pipe(
+            mapTo(undefined),
+            take(1)
+        ),
+        sendRequest: async (type, params) => connection.sendRequest(type, params),
+        sendNotification: async (type, params) => connection.sendNotification(type, params),
+        setRequestHandler: (type, handler) => connection.onRequest(type, handler),
+        observeNotification: type =>
+            notifications.pipe(
+                filter(({ method }) => method === type.method),
+                map(({ params }) => params)
+            ),
+        unsubscribe: () => {
+            socket.close()
+            connection.dispose()
+        },
+    }
+}
+
+export interface RegisterOptions {
+    progressSuffix?: string
+    sourcegraph: SourcegraphAPI
+    supportsWorkspaceFolders?: boolean
+    clientToServerURI?: (uri: URL) => URL
+    serverToClientURI?: (uri: URL) => URL
+    afterInitialize?: (initializeResult: InitializeResult) => Promise<void> | void
+    logger?: Logger
+    transport: () => Promise<LSPConnection> | LSPConnection
+    documentSelector: DocumentSelector
+}
+export async function register({
+    sourcegraph,
+    clientToServerURI = identity,
+    serverToClientURI = identity,
+    logger = console,
+    progressSuffix = '',
+    supportsWorkspaceFolders,
+    afterInitialize = noop,
+    transport: createConnection,
+    documentSelector,
+}: RegisterOptions): Promise<LSPClient> {
     const subscriptions = new Subscription()
     // tslint:disable-next-line:no-object-literal-type-assertion
     const clientCapabilities = {
@@ -159,19 +169,13 @@ export async function register(
             definition: {
                 dynamicRegistration: true,
             },
-            implementation: {
-                dynamicRegistration: true,
-            },
-            typeDefinition: {
-                dynamicRegistration: true,
-            },
         },
         experimental: {
             progress: true,
         },
     } as ClientCapabilities & WindowProgressClientCapabilities
 
-    function syncTextDocuments(connection: MessageConnection): void {
+    function syncTextDocuments(connection: LSPConnection): void {
         for (const textDocument of sourcegraph.workspace.textDocuments) {
             const serverTextDocumentUri = clientToServerURI(new URL(textDocument.uri))
             if (!sourcegraph.workspace.roots.some(root => serverTextDocumentUri.href.startsWith(root.uri.toString()))) {
@@ -194,144 +198,45 @@ export async function register(
      * @param scopeRootUri A workspace folder root URI to scope the providers to. If `null`, the provider is registered for all workspace folders.
      */
     function registerCapabilities(
-        connection: MessageConnection,
+        connection: LSPConnection,
         scopeRootUri: URL | null,
         registrations: Registration[]
     ): void {
         for (const registration of registrations) {
-            let unsubscribable: Unsubscribable
-            switch (registration.method) {
-                case HoverRequest.type.method: {
-                    const options = registration.registerOptions as RegistrationOptions<typeof HoverRequest.type>
-                    unsubscribable = sourcegraph.languages.registerHoverProvider(
-                        scopeDocumentSelectorToRoot(options.documentSelector, scopeRootUri),
-                        {
-                            provideHover: async (textDocument, position) => {
-                                const result = await connection.sendRequest(HoverRequest.type, {
-                                    textDocument: {
-                                        uri: clientToServerURI(new URL(textDocument.uri)).href,
-                                    },
-                                    position,
-                                })
-                                rewriteUris(result, serverToClientURI)
-                                return convertHover(result)
-                            },
-                        }
-                    )
-                    break
-                }
-                case DefinitionRequest.type.method: {
-                    const options = registration.registerOptions as RegistrationOptions<typeof DefinitionRequest.type>
-                    unsubscribable = sourcegraph.languages.registerDefinitionProvider(options.documentSelector || [], {
-                        provideDefinition: async (textDocument, position) => {
-                            const result = await connection.sendRequest(DefinitionRequest.type, {
-                                textDocument: {
-                                    uri: clientToServerURI(new URL(textDocument.uri)).href,
-                                },
-                                position,
-                            })
-                            rewriteUris(result, serverToClientURI)
-                            return convertLocations(result as Location[] | Location | null)
-                        },
+            const feature = features[registration.method]
+            if (feature) {
+                registrationSubscriptions.set(
+                    registration.id,
+                    feature.register({
+                        connection,
+                        sourcegraph,
+                        scopeRootUri,
+                        serverToClientURI,
+                        clientToServerURI,
+                        registerOptions: registration.registerOptions,
                     })
-                    break
-                }
-                case ReferencesRequest.type.method: {
-                    const options = registration.registerOptions as RegistrationOptions<typeof ReferencesRequest.type>
-                    unsubscribable = sourcegraph.languages.registerReferenceProvider(options.documentSelector || [], {
-                        provideReferences: async (textDocument, position, context) => {
-                            const result = await connection.sendRequest(ReferencesRequest.type, {
-                                textDocument: {
-                                    uri: clientToServerURI(new URL(textDocument.uri)).href,
-                                },
-                                position,
-                                context,
-                            })
-                            rewriteUris(result, serverToClientURI)
-                            return convertLocations(result as Location[] | Location | null)
-                        },
-                    })
-                    break
-                }
-                case TypeDefinitionRequest.type.method: {
-                    const options = registration.registerOptions as RegistrationOptions<
-                        typeof TypeDefinitionRequest.type
-                    >
-                    unsubscribable = sourcegraph.languages.registerTypeDefinitionProvider(
-                        options.documentSelector || [],
-                        {
-                            provideTypeDefinition: async (textDocument, position) => {
-                                const result = await connection.sendRequest(TypeDefinitionRequest.type, {
-                                    textDocument: {
-                                        uri: clientToServerURI(new URL(textDocument.uri)).href,
-                                    },
-                                    position,
-                                })
-                                rewriteUris(result, serverToClientURI)
-                                return convertLocations(result as Location[] | Location | null)
-                            },
-                        }
-                    )
-                    break
-                }
-                case ImplementationRequest.type.method: {
-                    const options = registration.registerOptions as RegistrationOptions<
-                        typeof ImplementationRequest.type
-                    >
-                    unsubscribable = sourcegraph.languages.registerImplementationProvider(
-                        options.documentSelector || [],
-                        {
-                            provideImplementation: async (textDocument, position) => {
-                                const result = await connection.sendRequest(ImplementationRequest.type, {
-                                    textDocument: {
-                                        uri: clientToServerURI(new URL(textDocument.uri)).href,
-                                    },
-                                    position,
-                                })
-                                rewriteUris(result, serverToClientURI)
-                                return convertLocations(result as Location[] | Location | null)
-                            },
-                        }
-                    )
-                    break
-                }
-                default:
-                    return
+                )
             }
-            registrationSubscriptions.set(registration.id, unsubscribable)
         }
     }
 
-    async function connect(): Promise<MessageConnection> {
+    async function connect(): Promise<LSPConnection> {
         const subscriptions = new Subscription()
-        const socket = new WebSocket(serverUrl.toString())
         const decorationType = sourcegraph.app.createDecorationType()
-        subscriptions.add(() => socket.close())
-        socket.addEventListener('close', event => {
-            logger.warn('WebSocket connection to TypeScript backend closed', event)
-            subscriptions.unsubscribe()
-        })
-        socket.addEventListener('error', event => {
-            logger.error('WebSocket error', event)
-        })
-        const rpcWebSocket = toSocket(socket)
-        const connection = createMessageConnection(
-            new WebSocketMessageReader(rpcWebSocket),
-            new WebSocketMessageWriter(rpcWebSocket),
-            logger
+        const connection = await createConnection()
+        logger.log(`WebSocket connection to TypeScript backend opened`)
+        subscriptions.add(
+            connection.observeNotification(LogMessageNotification.type).subscribe(({ type, message }) => {
+                const method = LSP_TO_LOG_LEVEL[type]
+                const args = [
+                    new Date().toLocaleTimeString() + ' %cLanguage Server%c %s',
+                    'background-color: blue; color: white',
+                    '',
+                    message,
+                ]
+                logger[method](...args)
+            })
         )
-        connection.onDispose(() => subscriptions.unsubscribe())
-        connection.onNotification(LogMessageNotification.type, ({ type, message }) => {
-            // Blue background for the "TypeScript server" prefix
-            const method = LSP_TO_LOG_LEVEL[type]
-            const args = [
-                new Date().toLocaleTimeString() + ' %cTypeScript backend%c %s',
-                'background-color: blue; color: white',
-                '',
-                message,
-            ]
-            logger[method](...args)
-        })
 
         // Display diagnostics as decorations
         /** Diagnostic by Sourcegraph text document URI */
@@ -347,28 +252,33 @@ export async function register(
             }
         })
 
-        connection.onNotification(PublishDiagnosticsNotification.type, params => {
-            const uri = new URL(params.uri)
-            const sourcegraphTextDocumentUri = serverToClientURI(uri)
-            diagnosticsByUri.set(sourcegraphTextDocumentUri.href, params.diagnostics)
-            for (const appWindow of sourcegraph.app.windows) {
-                for (const viewComponent of appWindow.visibleViewComponents) {
-                    if (viewComponent.document.uri === sourcegraphTextDocumentUri.href) {
-                        viewComponent.setDecorations(
-                            decorationType,
-                            params.diagnostics.map(convertDiagnosticToDecoration)
-                        )
+        subscriptions.add(
+            connection.observeNotification(PublishDiagnosticsNotification.type).subscribe(params => {
+                const uri = new URL(params.uri)
+                const sourcegraphTextDocumentUri = serverToClientURI(uri)
+                diagnosticsByUri.set(sourcegraphTextDocumentUri.href, params.diagnostics)
+                for (const appWindow of sourcegraph.app.windows) {
+                    for (const viewComponent of appWindow.visibleViewComponents) {
+                        if (viewComponent.document.uri === sourcegraphTextDocumentUri.href) {
+                            viewComponent.setDecorations(
+                                decorationType,
+                                params.diagnostics.map(d => convertDiagnosticToDecoration(sourcegraph, d))
+                            )
+                        }
                     }
                 }
-            }
-        })
+            })
+        )
 
         subscriptions.add(
-            sourcegraph.workspace.onDidOpenTextDocument.subscribe(() => {
+            sourcegraph.workspace.openedTextDocuments.subscribe(() => {
                 for (const appWindow of sourcegraph.app.windows) {
                     for (const viewComponent of appWindow.visibleViewComponents) {
                         const diagnostics = diagnosticsByUri.get(viewComponent.document.uri) || []
-                        viewComponent.setDecorations(decorationType, diagnostics.map(convertDiagnosticToDecoration))
+                        viewComponent.setDecorations(
+                            decorationType,
+                            diagnostics.map(d => convertDiagnosticToDecoration(sourcegraph, d))
+                        )
                     }
                 }
             })
@@ -386,43 +296,38 @@ export async function register(
             }
             progressReporters.clear()
         })
-        connection.onNotification(WindowProgressNotification.type, async ({ id, title, message, percentage, done }) => {
-            try {
-                if (!sourcegraph.app.activeWindow || !sourcegraph.app.activeWindow.showProgress) {
-                    return
-                }
-                let reporterPromise = progressReporters.get(id)
-                if (!reporterPromise) {
-                    if (title) {
-                        title = title + progressSuffix
+        subscriptions.add(
+            connection
+                .observeNotification(WindowProgressNotification.type)
+                .subscribe(async ({ id, title, message, percentage, done }) => {
+                    try {
+                        if (!sourcegraph.app.activeWindow || !sourcegraph.app.activeWindow.showProgress) {
+                            return
+                        }
+                        let reporterPromise = progressReporters.get(id)
+                        if (!reporterPromise) {
+                            if (title) {
+                                title = title + progressSuffix
+                            }
+                            reporterPromise = sourcegraph.app.activeWindow.showProgress({ title })
+                            progressReporters.set(id, reporterPromise)
+                        }
+                        const reporter = await reporterPromise
+                        reporter.next({ percentage, message })
+                        if (done) {
+                            reporter.complete()
+                            progressReporters.delete(id)
+                        }
+                    } catch (err) {
+                        logger.error('Error handling progress notification', err)
                     }
-                    reporterPromise = sourcegraph.app.activeWindow.showProgress({ title })
-                    progressReporters.set(id, reporterPromise)
-                }
-                const reporter = await reporterPromise
-                reporter.next({ percentage, message })
-                if (done) {
-                    reporter.complete()
-                    progressReporters.delete(id)
-                }
-            } catch (err) {
-                logger.error('Error handling progress notification', err)
-            }
-        })
-        connection.listen()
-        const event = await new Promise<Event>(resolve => {
-            socket.addEventListener('open', resolve, { once: true })
-            socket.addEventListener('error', resolve, { once: true })
-        })
-        if (event.type === 'error') {
-            throw new Error(`The WebSocket to the TypeScript backend at ${serverUrl} could not not be opened`)
-        }
-        logger.log(`WebSocket connection to TypeScript backend at ${serverUrl} opened`)
+                })
+        )
         return connection
     }
 
     async function initializeConnection(
-        connection: MessageConnection,
+        connection: LSPConnection,
         rootUri: URL | null,
         initParams: InitializeParams
     ): Promise<void> {
@@ -431,21 +336,23 @@ export async function register(
         syncTextDocuments(connection)
 
         // Convert static capabilities to dynamic registrations
-        const staticRegistrations = staticRegistrationsFromCapabilities(initializeResult.capabilities)
+        const staticRegistrations = staticRegistrationsFromCapabilities(initializeResult.capabilities, documentSelector)
 
         // Listen for dynamic capabilities
-        connection.onRequest(RegistrationRequest.type, params => {
+        connection.setRequestHandler(RegistrationRequest.type, params => {
             registerCapabilities(connection, rootUri, params.registrations)
         })
         // Register static capabilities
         registerCapabilities(connection, rootUri, staticRegistrations)
+
+        await afterInitialize(initializeResult)
     }
 
     let withConnection: <R>(workspaceFolder: URL, fn: (connection: LSPConnection) => Promise<R>) => Promise<R>
 
     if (supportsWorkspaceFolders) {
         const connection = await connect()
-        subscriptions.add(() => connection.dispose())
+        subscriptions.add(connection)
         withConnection = async (workspaceFolder, fn) => {
             let tempWorkspaceFolder: WorkspaceFolder | undefined
             // If workspace folder is not known yet, add it
@@ -479,12 +386,15 @@ export async function register(
 
         // Forward root changes
         subscriptions.add(
-            from(sourcegraph.workspace.onDidChangeRoots)
+            from(sourcegraph.workspace.rootChanges)
                 .pipe(
                     startWith(null),
-                    map(() => sourcegraph.workspace.roots),
-                    pairwise(),
-                    map(([before, after]) => ({
+                    map(() => [...sourcegraph.workspace.roots]),
+                    scan<WorkspaceRoot[], { before: WorkspaceRoot[]; after: WorkspaceRoot[] }>(({ before }, after) => ({
+                        before,
+                        after,
+                    })),
+                    map(({ before, after }) => ({
                         added: differenceBy(after, before, root => root.uri.toString()).map(toLSPWorkspaceFolder),
                         removed: differenceBy(before, after, root => root.uri.toString()).map(toLSPWorkspaceFolder),
                     }))
@@ -494,48 +404,51 @@ export async function register(
                 })
         )
     } else {
-        const connectionsByRootUri = new Map<string, Promise<MessageConnection>>()
+        // Supports only one workspace root
+        const connectionsByRootUri = new Map<string, Promise<LSPConnection>>()
         withConnection = async (workspaceFolder, fn) => {
             let connection = await connectionsByRootUri.get(workspaceFolder.href)
             if (!connection) {
                 connection = await connect()
-                subscriptions.add(() => connection!.dispose())
+                subscriptions.add(connection)
             }
             try {
                 return await fn(connection)
             } finally {
-                connection.dispose()
+                connection.unsubscribe()
+            }
+        }
+        function addRoots(added: ReadonlyArray<WorkspaceRoot>): void {
+            for (const root of added) {
+                const connectionPromise = (async () => {
+                    try {
+                        const connection = await connect()
+                        subscriptions.add(connection)
+                        await initializeConnection(connection, new URL(root.uri.toString()), {
+                            processId: null,
+                            rootUri: root.uri.toString(),
+                            capabilities: clientCapabilities,
+                            workspaceFolders: null,
+                        })
+                        return connection
+                    } catch (err) {
+                        logger.error('Error creating connection', err)
+                        connectionsByRootUri.delete(root.uri.toString())
+                        throw err
+                    }
+                })()
+                connectionsByRootUri.set(root.uri.toString(), connectionPromise)
             }
         }
         subscriptions.add(
-            from(sourcegraph.workspace.onDidChangeRoots)
+            from(sourcegraph.workspace.rootChanges)
                 .pipe(
                     startWith(null),
-                    map(() => sourcegraph.workspace.roots),
-                    pairwise(),
-                    concatMap(([before, after]) => {
+                    map(() => [...sourcegraph.workspace.roots]),
+                    scan((before, after) => {
                         // Create new connections for added workspaces
                         const added = differenceBy(after, before, root => root.uri.toString())
-                        for (const root of added) {
-                            const connectionPromise = (async () => {
-                                try {
-                                    const connection = await connect()
-                                    subscriptions.add(() => connection.dispose())
-                                    await initializeConnection(connection, new URL(root.uri.toString()), {
-                                        processId: null,
-                                        rootUri: root.uri.toString(),
-                                        capabilities: clientCapabilities,
-                                        workspaceFolders: null,
-                                    })
-                                    return connection
-                                } catch (err) {
-                                    logger.error('Error creating connection', err)
-                                    connectionsByRootUri.delete(root.uri.toString())
-                                    throw err
-                                }
-                            })()
-                            connectionsByRootUri.set(root.toString(), connectionPromise)
-                        }
+                        addRoots(added)
 
                         // Close connections for removed workspaces
                         const removed = differenceBy(before, after, root => root.uri.toString())
@@ -545,18 +458,20 @@ export async function register(
                                 try {
                                     const connection = await connectionsByRootUri.get(root.uri.toString())
                                     if (connection) {
-                                        connection.dispose()
+                                        connection.unsubscribe()
                                     }
                                 } catch (err) {
                                     logger.error('Error disposing connection', err)
                                 }
                             })
                         )
-                        return []
+                        return after
                     })
                 )
                 .subscribe()
         )
+        addRoots(sourcegraph.workspace.roots)
+        await Promise.all(connectionsByRootUri.values())
     }
 
     return {
