@@ -7,6 +7,7 @@ import {
     WebSocketMessageReader,
     WebSocketMessageWriter,
 } from '@sourcegraph/vscode-ws-jsonrpc'
+import { attempt } from 'lodash'
 import { fromEvent, merge, Subject } from 'rxjs'
 import { filter, map, mapTo, take } from 'rxjs/operators'
 import { Subscribable, Unsubscribable } from 'sourcegraph'
@@ -70,8 +71,8 @@ export const webSocketTransport = ({
                 map(({ params }) => params)
             ),
         unsubscribe: () => {
-            socket.close()
-            connection.dispose()
+            attempt(() => socket.close())
+            attempt(() => connection.dispose())
         },
     }
 }

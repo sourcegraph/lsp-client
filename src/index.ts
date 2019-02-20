@@ -60,7 +60,7 @@ export interface LSPClient extends Unsubscribable {
      * Ensures a connection with the given workspace root, passes it to the given function.
      * If the workspace is not currently open in Sourcegraph, the connection is closed again after the Promise returned by the function resolved.
      *
-     * @param workspaceRoot The workspace folder root URI that will be ensured to be open before calling the function.
+     * @param workspaceRoot The client workspace folder root URI that will be ensured to be open before calling the function.
      * @param fn Callback that is called with the connection.
      */
     withConnection<R>(workspaceRoot: URL, fn: (connection: LSPConnection) => Promise<R>): Promise<R>
@@ -128,7 +128,7 @@ export async function register({
 
     const registrationSubscriptions = new Map<string, Unsubscribable>()
     /**
-     * @param scopeRootUri A workspace folder root URI to scope the providers to. If `null`, the provider is registered for all workspace folders.
+     * @param scopeRootUri A client workspace folder root URI to scope the providers to. If `null`, the provider is registered for all workspace folders.
      */
     function registerCapabilities(
         connection: LSPConnection,
@@ -153,7 +153,7 @@ export async function register({
         }
     }
 
-    async function connect(): Promise<LSPConnection> {
+    async function connect(clientRootUri: URL | null, initParams: InitializeParams): Promise<LSPConnection> {
         const subscriptions = new Subscription()
         const decorationType = sourcegraph.app.createDecorationType()
         const connection = await createConnection()
@@ -256,12 +256,13 @@ export async function register({
                     }
                 })
         )
+        await initializeConnection(connection, clientRootUri, initParams)
         return connection
     }
 
     async function initializeConnection(
         connection: LSPConnection,
-        rootUri: URL | null,
+        clientRootUri: URL | null,
         initParams: InitializeParams
     ): Promise<void> {
         const initializeResult = await connection.sendRequest(InitializeRequest.type, initParams)
@@ -273,10 +274,10 @@ export async function register({
 
         // Listen for dynamic capabilities
         connection.setRequestHandler(RegistrationRequest.type, params => {
-            registerCapabilities(connection, rootUri, params.registrations)
+            registerCapabilities(connection, clientRootUri, params.registrations)
         })
         // Register static capabilities
-        registerCapabilities(connection, rootUri, staticRegistrations)
+        registerCapabilities(connection, clientRootUri, staticRegistrations)
 
         await afterInitialize(initializeResult)
     }
@@ -284,7 +285,15 @@ export async function register({
     let withConnection: <R>(workspaceFolder: URL, fn: (connection: LSPConnection) => Promise<R>) => Promise<R>
 
     if (supportsWorkspaceFolders) {
-        const connection = await connect()
+        const connection = await connect(
+            null,
+            {
+                processId: null,
+                rootUri: null,
+                capabilities: clientCapabilities,
+                workspaceFolders: sourcegraph.workspace.roots.map(toLSPWorkspaceFolder({ clientToServerURI })),
+            }
+        )
         subscriptions.add(connection)
         withConnection = async (workspaceFolder, fn) => {
             let tempWorkspaceFolder: WorkspaceFolder | undefined
@@ -310,12 +319,6 @@ export async function register({
                 }
             }
         }
-        await initializeConnection(connection, null, {
-            processId: null,
-            rootUri: null,
-            capabilities: clientCapabilities,
-            workspaceFolders: sourcegraph.workspace.roots.map(toLSPWorkspaceFolder),
-        })
 
         // Forward root changes
         subscriptions.add(
@@ -328,8 +331,12 @@ export async function register({
                         after,
                     })),
                     map(({ before, after }) => ({
-                        added: differenceBy(after, before, root => root.uri.toString()).map(toLSPWorkspaceFolder),
-                        removed: differenceBy(before, after, root => root.uri.toString()).map(toLSPWorkspaceFolder),
+                        added: differenceBy(after, before, root => root.uri.toString()).map(
+                            toLSPWorkspaceFolder({ clientToServerURI })
+                        ),
+                        removed: differenceBy(before, after, root => root.uri.toString()).map(
+                            toLSPWorkspaceFolder({ clientToServerURI })
+                        ),
                     }))
                 )
                 .subscribe(event => {
@@ -338,16 +345,29 @@ export async function register({
         )
     } else {
         // Supports only one workspace root
+        // TODO this should store a refcount to avoid closing connections other consumers have a reference to
+        /** Map from client root URI to connection */
         const connectionsByRootUri = new Map<string, Promise<LSPConnection>>()
         withConnection = async (workspaceFolder, fn) => {
             let connection = await connectionsByRootUri.get(workspaceFolder.href)
-            if (!connection) {
-                connection = await connect()
-                subscriptions.add(connection)
+            if (connection) {
+                return await fn(connection)
             }
+            const serverRootUri = clientToServerURI(workspaceFolder)
+            connection = await connect(
+                workspaceFolder,
+                {
+                    processId: null,
+                    rootUri: serverRootUri.href,
+                    capabilities: clientCapabilities,
+                    workspaceFolders: null,
+                }
+            )
+            subscriptions.add(connection)
             try {
                 return await fn(connection)
             } finally {
+                connectionsByRootUri.delete(workspaceFolder.href)
                 connection.unsubscribe()
             }
         }
@@ -355,14 +375,17 @@ export async function register({
             for (const root of added) {
                 const connectionPromise = (async () => {
                     try {
-                        const connection = await connect()
+                        const serverRootUri = clientToServerURI(new URL(root.uri.toString()))
+                        const connection = await connect(
+                            new URL(root.uri.toString()),
+                            {
+                                processId: null,
+                                rootUri: serverRootUri.href,
+                                capabilities: clientCapabilities,
+                                workspaceFolders: null,
+                            }
+                        )
                         subscriptions.add(connection)
-                        await initializeConnection(connection, new URL(root.uri.toString()), {
-                            processId: null,
-                            rootUri: root.uri.toString(),
-                            capabilities: clientCapabilities,
-                            workspaceFolders: null,
-                        })
                         return connection
                     } catch (err) {
                         logger.error('Error creating connection', err)

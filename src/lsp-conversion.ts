@@ -94,10 +94,15 @@ export const convertDiagnosticToDecoration = (
     range: convertRange(sourcegraph, diagnostic.range),
 })
 
-export const toLSPWorkspaceFolder = (root: sourcegraph.WorkspaceRoot): WorkspaceFolder => ({
-    uri: root.uri.toString(),
-    name: new URL(root.uri.toString()).pathname.split('/').pop()!,
-})
+export const toLSPWorkspaceFolder = ({ clientToServerURI }: { clientToServerURI: (u: URL) => URL }) => (
+    root: sourcegraph.WorkspaceRoot
+): WorkspaceFolder => {
+    const serverUri = clientToServerURI(new URL(root.uri.toString()))
+    return {
+        uri: serverUri.href,
+        name: new URL(serverUri.href).pathname.split('/').pop()!,
+    }
+}
 
 /**
  * Rewrites all `uri` properties in an object, recursively

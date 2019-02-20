@@ -23,18 +23,19 @@ export type RegistrationOptions<T extends RequestType<any, any, any, any>> = Exc
 
 export function scopeDocumentSelectorToRoot(
     documentSelector: DocumentSelector | null,
-    rootUri: URL | null
+    clientRootUri: URL | null
 ): DocumentSelector {
     if (!documentSelector || documentSelector.length === 0) {
         documentSelector = [{ pattern: '**' }]
     }
-    if (!rootUri) {
+    if (!clientRootUri) {
         return documentSelector
     }
     return documentSelector
         .map((filter): DocumentFilter => (typeof filter === 'string' ? { language: filter } : filter))
         .map(filter => ({
             ...filter,
-            pattern: new URL(filter.pattern || '**', rootUri).href,
+            // TODO filter.pattern needs to be run resolved relative to server root URI before mounting on clientRootUri
+            pattern: new URL(filter.pattern || '**', clientRootUri).href,
         }))
 }
