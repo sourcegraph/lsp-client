@@ -1,5 +1,5 @@
 {
   "extends": ["github>sourcegraph/renovate-config"],
   "semanticCommits": true,
-  "baseBranches": ["master", "next"]
+  "baseBranches": ["master"]
 }

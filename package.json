@@ -22,6 +22,9 @@
     "test": "TS_NODE_COMPILER_OPTIONS='{\"module\":\"commonjs\"}' mocha --require ts-node/register",
     "cover": "TS_NODE_COMPILER_OPTIONS='{\"module\":\"commonjs\"}' nyc --require ts-node/register --all mocha"
   },
+  "release": {
+    "branch": "latest"
+  },
   "commitlint": {
     "extends": [
       "@commitlint/config-conventional"
