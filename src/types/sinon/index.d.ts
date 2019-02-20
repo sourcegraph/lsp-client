@@ -1,3 +1,5 @@
+// tslint:disable
+
 declare module 'sinon' {
     // sinon uses DOM dependencies which are absent in browser-less environment like node.js
     // to avoid compiler errors this monkey patch is used

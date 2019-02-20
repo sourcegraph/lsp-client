@@ -8,8 +8,8 @@ import {
     InitializeResult,
     Location,
     MarkupKind,
-    TextDocumentPositionParams,
     ReferenceParams,
+    TextDocumentPositionParams,
 } from 'vscode-languageserver-protocol'
 import { createMockSourcegraphAPI, stubTransport } from './stubs'
 
