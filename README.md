@@ -17,20 +17,41 @@ npm install @sourcegraph/lsp-client
 yarn add @sourcegraph/lsp-client
 ```
 
-## Build
+## Usage
+
+```ts
+import * as sourcegraph from 'sourcegraph'
+import * as lspClient from '@sourcegraph/lsp-client'
+
+export async function activate(ctx: sourcegraph.ExtensionContext): Promise<void> {
+  const config = sourcegraph.configuration.get().value
+  const client = await lspClient.register({
+    sourcegraph,
+    transport: webSocketTransport({ serverUrl: config['myExtension.serverUrl'] }),
+    documentSelector: [{ language: 'myLanguage' }],
+    clientToServerURI: uri => ..., // optional
+    serverToClientURI: uri => ..., // optional
+  })
+  ctx.subscriptions.add(client)
+}
+```
+
+## Contributing
+
+### Build
 
 ```
 yarn
 yarn build
 ```
 
-## Test
+### Test
 
 ```
 yarn test
 ```
 
-## Release
+### Release
 
 Releases are done automatically in CI when commits are merged into master by analyzing [Conventional Commit Messages](https://conventionalcommits.org/).
 After running `yarn`, commit messages will be linted automatically when committing though a git hook.
