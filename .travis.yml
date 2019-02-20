@@ -22,9 +22,10 @@ jobs:
 stages:
   - test
   - name: release
-    if: branch = latest AND type = push AND fork = false
+    if: branch IN (latest, beta) AND type = push AND fork = false
 branches:
   only:
     - master
     - latest
+    - beta
     - /^renovate\//
