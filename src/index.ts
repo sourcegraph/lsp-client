@@ -1,17 +1,8 @@
-import {
-    createMessageConnection,
-    NotificationType,
-    RequestHandler,
-    RequestType,
-    toSocket,
-    WebSocketMessageReader,
-    WebSocketMessageWriter,
-} from '@sourcegraph/vscode-ws-jsonrpc'
 import { differenceBy, identity } from 'lodash'
 import * as path from 'path'
-import { from, fromEvent, merge, noop, Subject, Subscription, Unsubscribable } from 'rxjs'
-import { filter, map, mapTo, scan, startWith, take } from 'rxjs/operators'
-import { DocumentSelector, ProgressReporter, Subscribable, WorkspaceRoot } from 'sourcegraph'
+import { from, noop, Subscription, Unsubscribable } from 'rxjs'
+import { map, scan, startWith } from 'rxjs/operators'
+import { DocumentSelector, ProgressReporter, WorkspaceRoot } from 'sourcegraph'
 import * as uuid from 'uuid'
 import {
     ClientCapabilities,
@@ -31,10 +22,13 @@ import {
     ServerCapabilities,
     WorkspaceFolder,
 } from 'vscode-languageserver-protocol'
+import { LSPConnection } from './connection'
 import { features } from './features'
 import { Logger, LSP_TO_LOG_LEVEL } from './logging'
 import { convertDiagnosticToDecoration, toLSPWorkspaceFolder } from './lsp-conversion'
 import { WindowProgressClientCapabilities, WindowProgressNotification } from './protocol.progress.proposed'
+
+export * from './connection'
 
 type SourcegraphAPI = typeof import('sourcegraph')
 
@@ -61,15 +55,6 @@ function staticRegistrationsFromCapabilities(
     return staticRegistrations
 }
 
-export interface LSPConnection extends Unsubscribable {
-    closed: boolean
-    closeEvent: Subscribable<void>
-    sendRequest<P, R>(type: RequestType<P, R, any, any>, params: P): Promise<R>
-    sendNotification<P>(type: NotificationType<P, any>, params: P): void
-    observeNotification<P>(type: NotificationType<P, any>): Subscribable<P>
-    setRequestHandler<P, R>(type: RequestType<P, R, any, any>, handler: RequestHandler<P, R, any>): void
-}
-
 export interface LSPClient extends Unsubscribable {
     /**
      * Ensures a connection with the given workspace root, passes it to the given function.
@@ -79,61 +64,6 @@ export interface LSPClient extends Unsubscribable {
      * @param fn Callback that is called with the connection.
      */
     withConnection<R>(workspaceRoot: URL, fn: (connection: LSPConnection) => Promise<R>): Promise<R>
-}
-
-export const webSocketTransport = ({
-    serverUrl,
-    logger,
-}: {
-    serverUrl: string | URL
-    logger: Logger
-}) => async (): Promise<LSPConnection> => {
-    const socket = new WebSocket(serverUrl.toString())
-    const event = await merge(fromEvent<Event>(socket, 'open'), fromEvent<Event>(socket, 'error'))
-        .pipe(take(1))
-        .toPromise()
-    if (event.type === 'error') {
-        throw new Error(`The WebSocket to the TypeScript backend at ${serverUrl} could not not be opened`)
-    }
-    const rpcWebSocket = toSocket(socket)
-    const connection = createMessageConnection(
-        new WebSocketMessageReader(rpcWebSocket),
-        new WebSocketMessageWriter(rpcWebSocket),
-        logger
-    )
-    socket.addEventListener('close', event => {
-        logger.warn('WebSocket connection to TypeScript backend closed', event)
-        connection.dispose()
-    })
-    socket.addEventListener('error', event => {
-        logger.error('WebSocket error', event)
-    })
-    const notifications = new Subject<{ method: string; params: any }>()
-    connection.onNotification((method, params) => {
-        notifications.next({ method, params })
-    })
-    connection.listen()
-    return {
-        get closed(): boolean {
-            return socket.readyState === WebSocket.CLOSED || socket.readyState === WebSocket.CLOSING
-        },
-        closeEvent: fromEvent<Event>(socket, 'close').pipe(
-            mapTo(undefined),
-            take(1)
-        ),
-        sendRequest: async (type, params) => connection.sendRequest(type, params),
-        sendNotification: async (type, params) => connection.sendNotification(type, params),
-        setRequestHandler: (type, handler) => connection.onRequest(type, handler),
-        observeNotification: type =>
-            notifications.pipe(
-                filter(({ method }) => method === type.method),
-                map(({ params }) => params)
-            ),
-        unsubscribe: () => {
-            socket.close()
-            connection.dispose()
-        },
-    }
 }
 
 export interface RegisterOptions {
