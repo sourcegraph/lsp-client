@@ -27,7 +27,7 @@ export async function activate(ctx: sourcegraph.ExtensionContext): Promise<void>
   const config = sourcegraph.configuration.get().value
   const client = await lspClient.register({
     sourcegraph,
-    transport: webSocketTransport({ serverUrl: config['myExtension.serverUrl'] }),
+    transport: lspClient.webSocketTransport({ serverUrl: config['myExtension.serverUrl'] }),
     documentSelector: [{ language: 'myLanguage' }],
     clientToServerURI: uri => ..., // optional
     serverToClientURI: uri => ..., // optional
