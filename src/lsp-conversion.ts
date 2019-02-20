@@ -1,5 +1,5 @@
 import * as sourcegraph from 'sourcegraph'
-import { WorkspaceFolder } from 'vscode-languageserver-protocol'
+import { TextDocumentPositionParams, WorkspaceFolder } from 'vscode-languageserver-protocol'
 import {
     Diagnostic,
     DiagnosticSeverity,
@@ -13,7 +13,7 @@ import {
 export const convertProviderParams = (
     { textDocument, position }: { textDocument: sourcegraph.TextDocument; position: sourcegraph.Position },
     { clientToServerURI }: { clientToServerURI: (u: URL) => URL }
-) => ({
+): TextDocumentPositionParams => ({
     textDocument: {
         uri: clientToServerURI(new URL(textDocument.uri)).href,
     },
