@@ -57,7 +57,17 @@ export const createMockSourcegraphAPI = () => {
                     }
                 ) => new Subscription()
             ),
-            registerDefinitionProvider: sinon.spy(),
+            registerDefinitionProvider: sinon.spy(
+                (
+                    selector: sourcegraph.DocumentSelector,
+                    provider: {
+                        provideDefinition: (
+                            textDocument: sourcegraph.TextDocument,
+                            position: Position
+                        ) => Promise<sourcegraph.Definition>
+                    }
+                ) => new Subscription()
+            ),
             registerLocationProvider: sinon.spy(),
             registerReferenceProvider: sinon.spy(),
             registerTypeDefinitionProvider: sinon.spy(),

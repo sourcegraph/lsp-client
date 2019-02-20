@@ -2,6 +2,7 @@ import * as assert from 'assert'
 import mock from 'mock-require'
 import * as sinon from 'sinon'
 import {
+    Definition,
     Hover,
     InitializeParams,
     InitializeResult,
@@ -94,6 +95,83 @@ describe('register()', () => {
         sourcegraph.workspace.rootChanges.next()
         await unsubscribed
         sinon.assert.calledOnce(createConnection.returnValues[0].unsubscribe)
+    })
+    it('should register a definition provider if the server reports the definition capability', async () => {
+        const repoRoot = 'https://sourcegraph.test/repo@rev/-/raw/'
+        const server = {
+            initialize: sinon.spy(
+                (params: InitializeParams): InitializeResult => ({
+                    capabilities: {
+                        definitionProvider: true,
+                    },
+                })
+            ),
+            'textDocument/definition': sinon.spy(
+                (params: TextDocumentPositionParams): Definition => ({
+                    uri: new URL('bar.ts', repoRoot).href,
+                    range: {
+                        start: { line: 1, character: 2 },
+                        end: { line: 3, character: 4 },
+                    },
+                })
+            ),
+        }
+        const createConnection = stubTransport(server)
+
+        sourcegraph.workspace.textDocuments = [
+            {
+                uri: new URL('foo.ts', repoRoot).href,
+                languageId: 'typescript',
+                text: 'console.log("Hello world")',
+            },
+        ]
+        sourcegraph.workspace.roots = [{ uri: repoRoot }]
+
+        const documentSelector = [{ language: 'typescript' }]
+        await register({
+            sourcegraph: sourcegraph as any,
+            transport: createConnection,
+            documentSelector,
+            logger,
+        })
+
+        sinon.assert.calledWith(
+            server.initialize,
+            sinon.match({
+                capabilities: {
+                    textDocument: {
+                        definition: {
+                            dynamicRegistration: true,
+                        },
+                    },
+                },
+            })
+        )
+
+        sinon.assert.calledOnce(sourcegraph.languages.registerDefinitionProvider)
+
+        const [selector, provider] = sourcegraph.languages.registerDefinitionProvider.args[0]
+        assert.deepStrictEqual(selector, [
+            {
+                language: 'typescript',
+                pattern: 'https://sourcegraph.test/repo@rev/-/raw/**',
+            },
+        ])
+        const result = await provider.provideDefinition(
+            sourcegraph.workspace.textDocuments[0],
+            new sourcegraph.Position(0, 2)
+        )
+        sinon.assert.calledOnce(server['textDocument/definition'])
+        sinon.assert.calledWith(server['textDocument/definition'], {
+            textDocument: { uri: sourcegraph.workspace.textDocuments[0].uri },
+            position: { line: 0, character: 2 },
+        })
+        assert.deepStrictEqual(result, [
+            {
+                uri: new URL('bar.ts', repoRoot),
+                range: new sourcegraph.Range(new sourcegraph.Position(1, 2), new sourcegraph.Position(3, 4)),
+            },
+        ])
     })
     it('should register a hover provider if the server reports the hover capability', async () => {
         const repoRoot = 'https://sourcegraph.test/repo@rev/-/raw/'

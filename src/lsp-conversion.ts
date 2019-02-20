@@ -1,9 +1,21 @@
 import * as sourcegraph from 'sourcegraph'
 import { WorkspaceFolder } from 'vscode-languageserver-protocol'
-import { Diagnostic, DiagnosticSeverity, Hover, Location, MarkupContent, Range } from 'vscode-languageserver-types'
+import {
+    Diagnostic,
+    DiagnosticSeverity,
+    Hover,
+    Location,
+    MarkupContent,
+    Position,
+    Range,
+} from 'vscode-languageserver-types'
+
+export function convertPosition(sourcegraph: typeof import('sourcegraph'), position: Position): sourcegraph.Position {
+    return new sourcegraph.Position(position.line, position.character)
+}
 
 export function convertRange(sourcegraph: typeof import('sourcegraph'), range: Range): sourcegraph.Range {
-    return new sourcegraph.Range(range.start.line, range.start.character, range.end.line, range.end.character)
+    return new sourcegraph.Range(convertPosition(sourcegraph, range.start), convertPosition(sourcegraph, range.end))
 }
 
 export function convertHover(sourcegraph: typeof import('sourcegraph'), hover: Hover | null): sourcegraph.Hover | null {
