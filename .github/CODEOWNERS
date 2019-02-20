@@ -2,5 +2,5 @@
 # Each line is a file pattern followed by one or more owners.
 # https://help.github.com/articles/about-codeowners/
 
-* @chrismwendt
+* @felixfbecker
 *.ts @chrismwendt @lguychard @felixfbecker
