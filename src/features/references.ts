@@ -1,5 +1,5 @@
 import { ReferencesRequest } from 'vscode-languageserver-protocol'
-import { convertLocations, rewriteUris } from '../lsp-conversion'
+import { convertLocations, convertProviderParams, rewriteUris } from '../lsp-conversion'
 import { Feature, scopeDocumentSelectorToRoot } from './feature'
 
 export const referencesFeature: Feature<typeof ReferencesRequest.type, 'referencesProvider'> = {
@@ -12,13 +12,7 @@ export const referencesFeature: Feature<typeof ReferencesRequest.type, 'referenc
             {
                 provideReferences: async (textDocument, position, context) => {
                     const result = await connection.sendRequest(ReferencesRequest.type, {
-                        textDocument: {
-                            uri: clientToServerURI(new URL(textDocument.uri)).href,
-                        },
-                        position: {
-                            line: position.line,
-                            character: position.character,
-                        },
+                        ...convertProviderParams({ textDocument, position }, { clientToServerURI }),
                         context,
                     })
                     rewriteUris(result, serverToClientURI)

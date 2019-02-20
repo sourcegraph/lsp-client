@@ -10,13 +10,24 @@ import {
     Range,
 } from 'vscode-languageserver-types'
 
-export function convertPosition(sourcegraph: typeof import('sourcegraph'), position: Position): sourcegraph.Position {
-    return new sourcegraph.Position(position.line, position.character)
-}
+export const convertProviderParams = (
+    { textDocument, position }: { textDocument: sourcegraph.TextDocument; position: sourcegraph.Position },
+    { clientToServerURI }: { clientToServerURI: (u: URL) => URL }
+) => ({
+    textDocument: {
+        uri: clientToServerURI(new URL(textDocument.uri)).href,
+    },
+    position: {
+        line: position.line,
+        character: position.character,
+    },
+})
 
-export function convertRange(sourcegraph: typeof import('sourcegraph'), range: Range): sourcegraph.Range {
-    return new sourcegraph.Range(convertPosition(sourcegraph, range.start), convertPosition(sourcegraph, range.end))
-}
+export const convertPosition = (sourcegraph: typeof import('sourcegraph'), position: Position): sourcegraph.Position =>
+    new sourcegraph.Position(position.line, position.character)
+
+export const convertRange = (sourcegraph: typeof import('sourcegraph'), range: Range): sourcegraph.Range =>
+    new sourcegraph.Range(convertPosition(sourcegraph, range.start), convertPosition(sourcegraph, range.end))
 
 export function convertHover(sourcegraph: typeof import('sourcegraph'), hover: Hover | null): sourcegraph.Hover | null {
     if (!hover) {

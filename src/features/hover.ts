@@ -1,5 +1,5 @@
 import { HoverRequest } from 'vscode-languageserver-protocol'
-import { convertHover, rewriteUris } from '../lsp-conversion'
+import { convertHover, convertProviderParams, rewriteUris } from '../lsp-conversion'
 import { Feature, scopeDocumentSelectorToRoot } from './feature'
 
 export const hoverFeature: Feature<typeof HoverRequest.type, 'hoverProvider'> = {
@@ -11,15 +11,10 @@ export const hoverFeature: Feature<typeof HoverRequest.type, 'hoverProvider'> = 
             scopeDocumentSelectorToRoot(registerOptions.documentSelector, scopeRootUri),
             {
                 provideHover: async (textDocument, position) => {
-                    const result = await connection.sendRequest(HoverRequest.type, {
-                        textDocument: {
-                            uri: clientToServerURI(new URL(textDocument.uri)).href,
-                        },
-                        position: {
-                            line: position.line,
-                            character: position.character,
-                        },
-                    })
+                    const result = await connection.sendRequest(
+                        HoverRequest.type,
+                        convertProviderParams({ textDocument, position }, { clientToServerURI })
+                    )
                     rewriteUris(result, serverToClientURI)
                     return convertHover(sourcegraph, result)
                 },
