@@ -420,9 +420,9 @@
   dependencies:
     vscode-jsonrpc "^4.0.0"
 
-"@types/lodash@^4.14.119":
+"@types/lodash@4.14.119":
   version "4.14.119"
-  resolved "https://registry.npmjs.org/@types/lodash/-/lodash-4.14.119.tgz#be847e5f4bc3e35e46d041c394ead8b603ad8b39"
+  resolved "https://registry.yarnpkg.com/@types/lodash/-/lodash-4.14.119.tgz#be847e5f4bc3e35e46d041c394ead8b603ad8b39"
   integrity sha512-Z3TNyBL8Vd/M9D9Ms2S3LmFq2sSMzahodD6rCS9V2N44HUMINb75jNkSuwAx7eo2ufqTdfOdtGQpNbieUjPQmw==
 
 "@types/mocha@5.2.6":
@@ -430,9 +430,9 @@
   resolved "https://registry.npmjs.org/@types/mocha/-/mocha-5.2.6.tgz#b8622d50557dd155e9f2f634b7d68fd38de5e94b"
   integrity sha512-1axi39YdtBI7z957vdqXI4Ac25e7YihYQtJa+Clnxg1zTJEaIRbndt71O3sP4GAMgiAm0pY26/b9BrY4MR/PMw==
 
-"@types/mock-require@^2.0.0":
+"@types/mock-require@2.0.0":
   version "2.0.0"
-  resolved "https://registry.npmjs.org/@types/mock-require/-/mock-require-2.0.0.tgz#57a4f0db0b4b6274f610a2d2c20beb3c842181e1"
+  resolved "https://registry.yarnpkg.com/@types/mock-require/-/mock-require-2.0.0.tgz#57a4f0db0b4b6274f610a2d2c20beb3c842181e1"
   integrity sha512-nOgjoE5bBiDeiA+z41i95makyHUSMWQMOPocP+J67Pqx/68HAXaeWN1NFtrAYYV6LrISIZZ8vKHm/a50k0f6Sg==
   dependencies:
     "@types/node" "*"
@@ -447,9 +447,9 @@
   resolved "https://registry.npmjs.org/@types/sinon/-/sinon-7.0.6.tgz#dbe6c059dd4e2fd2b8e8fc3ed051d4706c84c63e"
   integrity sha512-ldQl2p7kyCXHhr//5sQCu9jWgSiDbYuCD5dUp53r/z8T8jmgKpANpy4vqjbdho9P2ldFaQC/gpW31hch+oQ0IQ==
 
-"@types/uuid@^3.4.4":
+"@types/uuid@3.4.4":
   version "3.4.4"
-  resolved "https://registry.npmjs.org/@types/uuid/-/uuid-3.4.4.tgz#7af69360fa65ef0decb41fd150bf4ca5c0cefdf5"
+  resolved "https://registry.yarnpkg.com/@types/uuid/-/uuid-3.4.4.tgz#7af69360fa65ef0decb41fd150bf4ca5c0cefdf5"
   integrity sha512-tPIgT0GUmdJQNSHxp0X2jnpQfBSTfGxUMc/2CXBU2mnyTFVYVa2ojpoQ74w0U2yn2vw3jnC640+77lkFFpdVDw==
   dependencies:
     "@types/node" "*"
