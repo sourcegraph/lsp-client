@@ -68,10 +68,51 @@ export const createMockSourcegraphAPI = () => {
                     }
                 ) => new Subscription()
             ),
-            registerLocationProvider: sinon.spy(),
-            registerReferenceProvider: sinon.spy(),
-            registerTypeDefinitionProvider: sinon.spy(),
-            registerImplementationProvider: sinon.spy(),
+            registerLocationProvider: sinon.spy(
+                (
+                    selector: sourcegraph.DocumentSelector,
+                    provider: {
+                        provideLocations: (
+                            textDocument: sourcegraph.TextDocument,
+                            position: Position
+                        ) => Promise<sourcegraph.Definition>
+                    }
+                ) => new Subscription()
+            ),
+            registerReferenceProvider: sinon.spy(
+                (
+                    selector: sourcegraph.DocumentSelector,
+                    provider: {
+                        provideReferences: (
+                            textDocument: sourcegraph.TextDocument,
+                            position: Position,
+                            context: sourcegraph.ReferenceContext
+                        ) => Promise<sourcegraph.Location[]>
+                    }
+                ) => new Subscription()
+            ),
+            registerTypeDefinitionProvider: sinon.spy(
+                (
+                    selector: sourcegraph.DocumentSelector,
+                    provider: {
+                        provideTypeDefinition: (
+                            textDocument: sourcegraph.TextDocument,
+                            position: Position
+                        ) => Promise<sourcegraph.Definition>
+                    }
+                ) => new Subscription()
+            ),
+            registerImplementationProvider: sinon.spy(
+                (
+                    selector: sourcegraph.DocumentSelector,
+                    provider: {
+                        provideImplementation: (
+                            textDocument: sourcegraph.TextDocument,
+                            position: Position
+                        ) => Promise<sourcegraph.Definition>
+                    }
+                ) => new Subscription()
+            ),
         },
         app: {
             createDecorationType: () => ({ key: uniqueId('decorationType') }),

@@ -169,6 +169,9 @@ export async function register({
             definition: {
                 dynamicRegistration: true,
             },
+            references: {
+                dynamicRegistration: true,
+            },
         },
         experimental: {
             progress: true,
