@@ -56,7 +56,7 @@
     "@sourcegraph/prettierrc": "^2.2.0",
     "@sourcegraph/tsconfig": "^4.0.0",
     "@sourcegraph/tslint-config": "^12.3.1",
-    "@types/lodash": "4.14.119",
+    "@types/lodash": "4.14.121",
     "@types/mocha": "5.2.6",
     "@types/mock-require": "2.0.0",
     "@types/sinon": "7.0.8",
