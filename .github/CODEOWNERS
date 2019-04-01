@@ -4,3 +4,7 @@
 
 * @felixfbecker
 *.ts @chrismwendt @lguychard @felixfbecker
+
+# Configured by Renovate
+package.json
+yarn.lock
