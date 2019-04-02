@@ -55,7 +55,7 @@
     "@commitlint/config-conventional": "^7.1.2",
     "@sourcegraph/prettierrc": "^2.2.0",
     "@sourcegraph/tsconfig": "^4.0.0",
-    "@sourcegraph/tslint-config": "^12.3.1",
+    "@sourcegraph/tslint-config": "^13.0.0",
     "@types/lodash": "4.14.123",
     "@types/mocha": "5.2.6",
     "@types/mock-require": "2.0.0",
