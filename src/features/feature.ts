@@ -14,7 +14,7 @@ export interface Feature<R extends RequestType<any, any, any, any>, C extends ke
         sourcegraph: typeof import('sourcegraph')
         scopeRootUri: URL | null
         clientToServerURI: (uri: URL) => URL
-        serverToClientURI: (uri: URL) => URL
+        serverToClientURI: (uri: URL, scopeRootUri: URL | null) => URL
         registerOptions: RegistrationOptions<R>
     }): Unsubscribable
 }

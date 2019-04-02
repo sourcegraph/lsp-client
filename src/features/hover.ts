@@ -15,7 +15,7 @@ export const hoverFeature: Feature<typeof HoverRequest.type, 'hoverProvider'> = 
                         HoverRequest.type,
                         convertProviderParams({ textDocument, position }, { clientToServerURI })
                     )
-                    rewriteUris(result, serverToClientURI)
+                    rewriteUris(result, uri => serverToClientURI(uri, scopeRootUri))
                     return convertHover(sourcegraph, result)
                 },
             }

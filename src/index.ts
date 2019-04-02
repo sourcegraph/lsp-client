@@ -1,7 +1,7 @@
 import { differenceBy, identity } from 'lodash'
 import * as path from 'path'
 import { from, noop, Subscription, Unsubscribable } from 'rxjs'
-import { map, scan, startWith } from 'rxjs/operators'
+import { map, scan, startWith, buffer, debounceTime } from 'rxjs/operators'
 import { DocumentSelector, ProgressReporter, WorkspaceRoot } from 'sourcegraph'
 import * as uuid from 'uuid'
 import {
@@ -71,11 +71,12 @@ export interface RegisterOptions {
     sourcegraph: SourcegraphAPI
     supportsWorkspaceFolders?: boolean
     clientToServerURI?: (uri: URL) => URL
-    serverToClientURI?: (uri: URL) => URL
+    serverToClientURI?: (uri: URL, scopeRootUri: URL | null) => URL
     afterInitialize?: (initializeResult: InitializeResult) => Promise<void> | void
     logger?: Logger
     transport: () => Promise<LSPConnection> | LSPConnection
     documentSelector: DocumentSelector
+    additionalInitializationOptions?: (url: URL) => any
 }
 export async function register({
     sourcegraph,
@@ -87,6 +88,7 @@ export async function register({
     afterInitialize = noop,
     transport: createConnection,
     documentSelector,
+    additionalInitializationOptions,
 }: RegisterOptions): Promise<LSPClient> {
     const subscriptions = new Subscription()
     // tslint:disable-next-line:no-object-literal-type-assertion
@@ -153,7 +155,10 @@ export async function register({
         }
     }
 
-    async function connect(clientRootUri: URL | null, initParams: InitializeParams): Promise<LSPConnection> {
+    async function connect(
+        clientRootUri: URL | null,
+        initParams: InitializeParams & { originalRootUri?: string | null }
+    ): Promise<LSPConnection> {
         const subscriptions = new Subscription()
         const decorationType = sourcegraph.app.createDecorationType()
         const connection = await createConnection()
@@ -188,7 +193,7 @@ export async function register({
         subscriptions.add(
             connection.observeNotification(PublishDiagnosticsNotification.type).subscribe(params => {
                 const uri = new URL(params.uri)
-                const sourcegraphTextDocumentUri = serverToClientURI(uri)
+                const sourcegraphTextDocumentUri = serverToClientURI(uri, clientRootUri)
                 diagnosticsByUri.set(sourcegraphTextDocumentUri.href, params.diagnostics)
                 for (const appWindow of sourcegraph.app.windows) {
                     for (const viewComponent of appWindow.visibleViewComponents) {
@@ -265,7 +270,12 @@ export async function register({
         clientRootUri: URL | null,
         initParams: InitializeParams
     ): Promise<void> {
-        const initializeResult = await connection.sendRequest(InitializeRequest.type, initParams)
+        // TODO passing a function around in initializationOptions is hacky,
+        // consider moving it to a separate parameter
+        if (initParams.initializationOptions && clientRootUri) {
+            initParams.initializationOptions = initParams.initializationOptions(clientRootUri)
+        }
+        const initializeResult = await connection.sendRequest(InitializeRequest.type, { ...initParams, rootPath: '/' })
         // Tell language server about all currently open text documents under this root
         syncTextDocuments(connection)
 
@@ -292,6 +302,8 @@ export async function register({
                 rootUri: null,
                 capabilities: clientCapabilities,
                 workspaceFolders: sourcegraph.workspace.roots.map(toLSPWorkspaceFolder({ clientToServerURI })),
+                originalRootUri: null,
+                initializationOptions: additionalInitializationOptions,
             }
         )
         subscriptions.add(connection)
@@ -359,8 +371,10 @@ export async function register({
                 {
                     processId: null,
                     rootUri: serverRootUri.href,
+                    originalRootUri: workspaceFolder.href,
                     capabilities: clientCapabilities,
                     workspaceFolders: null,
+                    initializationOptions: additionalInitializationOptions,
                 }
             )
             subscriptions.add(connection)
@@ -380,9 +394,11 @@ export async function register({
                             new URL(root.uri.toString()),
                             {
                                 processId: null,
+                                originalRootUri: root.uri.toString(),
                                 rootUri: serverRootUri.href,
                                 capabilities: clientCapabilities,
                                 workspaceFolders: null,
+                                initializationOptions: additionalInitializationOptions,
                             }
                         )
                         subscriptions.add(connection)
@@ -399,6 +415,10 @@ export async function register({
         subscriptions.add(
             from(sourcegraph.workspace.rootChanges)
                 .pipe(
+                    // TODO try to fix sourcegraph/sourcegraph so that it
+                    // doesn't emit empty workspace roots between page
+                    // navigations
+                    buffer(from(sourcegraph.workspace.rootChanges).pipe(debounceTime(1000))),
                     startWith(null),
                     map(() => [...sourcegraph.workspace.roots]),
                     scan((before, after) => {

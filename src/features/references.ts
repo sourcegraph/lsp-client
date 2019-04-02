@@ -15,7 +15,7 @@ export const referencesFeature: Feature<typeof ReferencesRequest.type, 'referenc
                         ...convertProviderParams({ textDocument, position }, { clientToServerURI }),
                         context,
                     })
-                    rewriteUris(result, serverToClientURI)
+                    rewriteUris(result, uri => serverToClientURI(uri, scopeRootUri))
                     return convertLocations(sourcegraph, result)
                 },
             }

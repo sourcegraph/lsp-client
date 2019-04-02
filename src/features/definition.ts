@@ -15,7 +15,7 @@ export const definitionFeature: Feature<typeof DefinitionRequest.type, 'definiti
                         DefinitionRequest.type,
                         convertProviderParams({ textDocument, position }, { clientToServerURI })
                     )
-                    rewriteUris(result, serverToClientURI)
+                    rewriteUris(result, uri => serverToClientURI(uri, scopeRootUri))
                     return convertLocations(sourcegraph, result as Location | Location[] | null)
                 },
             }
