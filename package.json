@@ -76,7 +76,7 @@
     "@sourcegraph/vscode-ws-jsonrpc": "^0.0.3-fork",
     "lodash": "^4.17.11",
     "rxjs": "^6.4.0",
-    "sourcegraph": "^22.0.0",
+    "sourcegraph": "^23.0.0",
     "type-zoo": "^3.2.1",
     "uuid": "^3.3.2",
     "vscode-languageserver-protocol": "^3.14.1",
