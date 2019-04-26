@@ -25,7 +25,7 @@ const logger = new NoopLogger()
 describe('register()', () => {
     it('should initialize one connection with each workspace folder if the server is multi-root capable', async () => {
         const sourcegraph = createMockSourcegraphAPI()
-        sourcegraph.workspace.roots = [{ uri: 'git://repo1?rev' }, { uri: 'git://repo2?rev' }]
+        sourcegraph.workspace.roots = [{ uri: new URL('git://repo1?rev') }, { uri: new URL('git://repo2?rev') }]
         const server = {
             initialize: sinon.spy((params: InitializeParams): InitializeResult => ({ capabilities: {} })),
         }
@@ -49,7 +49,7 @@ describe('register()', () => {
     })
     it('should initialize one connection for each workspace folder if the server is not multi-root capable', async () => {
         const sourcegraph = createMockSourcegraphAPI()
-        sourcegraph.workspace.roots = [{ uri: 'git://repo1?rev' }, { uri: 'git://repo2?rev' }]
+        sourcegraph.workspace.roots = [{ uri: new URL('git://repo1?rev') }, { uri: new URL('git://repo2?rev') }]
         const server = {
             initialize: sinon.spy((params: InitializeParams): InitializeResult => ({ capabilities: {} })),
         }
@@ -80,7 +80,7 @@ describe('register()', () => {
     })
     it('should close a connection when a workspace folder is closed', async () => {
         const sourcegraph = createMockSourcegraphAPI()
-        sourcegraph.workspace.roots = [{ uri: 'git://repo1?rev' }, { uri: 'git://repo2?rev' }]
+        sourcegraph.workspace.roots = [{ uri: new URL('git://repo1?rev') }, { uri: new URL('git://repo2?rev') }]
         const server = {
             initialize: sinon.spy((params: InitializeParams): InitializeResult => ({ capabilities: {} })),
         }
@@ -99,7 +99,7 @@ describe('register()', () => {
         sinon.assert.calledOnce(createConnection.returnValues[0].unsubscribe)
     })
     it('should register a references provider if the server reports the references capability', async () => {
-        const repoRoot = 'https://sourcegraph.test/repo@rev/-/raw/'
+        const repoRoot = new URL('https://sourcegraph.test/repo@rev/-/raw/')
         const server = {
             initialize: sinon.spy(
                 (params: InitializeParams): InitializeResult => ({
@@ -180,7 +180,7 @@ describe('register()', () => {
         ])
     })
     it('should register a definition provider if the server reports the definition capability', async () => {
-        const repoRoot = 'https://sourcegraph.test/repo@rev/-/raw/'
+        const repoRoot = new URL('https://sourcegraph.test/repo@rev/-/raw/')
         const server = {
             initialize: sinon.spy(
                 (params: InitializeParams): InitializeResult => ({
@@ -257,7 +257,7 @@ describe('register()', () => {
         ])
     })
     it('should register a hover provider if the server reports the hover capability', async () => {
-        const repoRoot = 'https://sourcegraph.test/repo@rev/-/raw/'
+        const repoRoot = new URL('https://sourcegraph.test/repo@rev/-/raw/')
         const server = {
             initialize: sinon.spy(
                 async (params: InitializeParams): Promise<InitializeResult> => ({

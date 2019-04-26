@@ -118,7 +118,7 @@ export async function register({
                 textDocument: {
                     uri: serverTextDocumentUri.href,
                     languageId: textDocument.languageId,
-                    text: textDocument.text,
+                    text: textDocument.text || '', // TODO try to fetch contents from somewhere
                     version: 1,
                 },
             }
