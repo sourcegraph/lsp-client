@@ -1,6 +1,12 @@
-import * as assert from 'assert'
+import { createStubSourcegraphAPI } from '@sourcegraph/extension-api-stubs'
 import mock from 'mock-require'
+const stubAPI = createStubSourcegraphAPI()
+// For modules importing Range/Location/Position/URI/etc
+mock('sourcegraph', stubAPI)
+
+import * as assert from 'assert'
 import * as sinon from 'sinon'
+import * as sourcegraph from 'sourcegraph'
 import {
     Definition,
     Hover,
@@ -11,20 +17,15 @@ import {
     ReferenceParams,
     TextDocumentPositionParams,
 } from 'vscode-languageserver-protocol'
-import { createMockSourcegraphAPI, stubTransport } from './stubs'
-
-const sourcegraph = createMockSourcegraphAPI()
-// For modules importing Range/Location/Position/URI/etc
-mock('sourcegraph', sourcegraph)
-
 import { register } from '..'
 import { NoopLogger } from '../logging'
+import { stubTransport } from './stubs'
 
 const logger = new NoopLogger()
 
 describe('register()', () => {
     it('should initialize one connection with each workspace folder if the server is multi-root capable', async () => {
-        const sourcegraph = createMockSourcegraphAPI()
+        const sourcegraph = createStubSourcegraphAPI()
         sourcegraph.workspace.roots = [{ uri: new URL('git://repo1?rev') }, { uri: new URL('git://repo2?rev') }]
         const server = {
             initialize: sinon.spy((params: InitializeParams): InitializeResult => ({ capabilities: {} })),
@@ -48,7 +49,7 @@ describe('register()', () => {
         )
     })
     it('should initialize one connection for each workspace folder if the server is not multi-root capable', async () => {
-        const sourcegraph = createMockSourcegraphAPI()
+        const sourcegraph = createStubSourcegraphAPI()
         sourcegraph.workspace.roots = [{ uri: new URL('git://repo1?rev') }, { uri: new URL('git://repo2?rev') }]
         const server = {
             initialize: sinon.spy((params: InitializeParams): InitializeResult => ({ capabilities: {} })),
@@ -79,7 +80,7 @@ describe('register()', () => {
         )
     })
     it('should close a connection when a workspace folder is closed', async () => {
-        const sourcegraph = createMockSourcegraphAPI()
+        const sourcegraph = createStubSourcegraphAPI()
         sourcegraph.workspace.roots = [{ uri: new URL('git://repo1?rev') }, { uri: new URL('git://repo2?rev') }]
         const server = {
             initialize: sinon.spy((params: InitializeParams): InitializeResult => ({ capabilities: {} })),
@@ -122,18 +123,18 @@ describe('register()', () => {
         }
         const createConnection = stubTransport(server)
 
-        sourcegraph.workspace.textDocuments = [
+        stubAPI.workspace.textDocuments = [
             {
                 uri: new URL('foo.ts', repoRoot).href,
                 languageId: 'typescript',
                 text: 'console.log("Hello world")',
             },
         ]
-        sourcegraph.workspace.roots = [{ uri: repoRoot }]
+        stubAPI.workspace.roots = [{ uri: repoRoot }]
 
         const documentSelector = [{ language: 'typescript' }]
         await register({
-            sourcegraph: sourcegraph as any,
+            sourcegraph: stubAPI as any,
             transport: createConnection,
             documentSelector,
             logger,
@@ -152,9 +153,9 @@ describe('register()', () => {
             })
         )
 
-        sinon.assert.calledOnce(sourcegraph.languages.registerReferenceProvider)
+        sinon.assert.calledOnce(stubAPI.languages.registerReferenceProvider)
 
-        const [selector, provider] = sourcegraph.languages.registerReferenceProvider.args[0]
+        const [selector, provider] = stubAPI.languages.registerReferenceProvider.args[0]
         assert.deepStrictEqual(selector, [
             {
                 language: 'typescript',
@@ -162,20 +163,20 @@ describe('register()', () => {
             },
         ])
         const result = await provider.provideReferences(
-            sourcegraph.workspace.textDocuments[0],
+            stubAPI.workspace.textDocuments[0],
             new sourcegraph.Position(0, 2),
             { includeDeclaration: false }
         )
         sinon.assert.calledOnce(server['textDocument/references'])
         sinon.assert.calledWith(server['textDocument/references'], {
-            textDocument: { uri: sourcegraph.workspace.textDocuments[0].uri },
+            textDocument: { uri: stubAPI.workspace.textDocuments[0].uri },
             position: { line: 0, character: 2 },
             context: { includeDeclaration: false },
         })
         assert.deepStrictEqual(result, [
             {
                 uri: new URL('bar.ts', repoRoot),
-                range: new sourcegraph.Range(new sourcegraph.Position(1, 2), new sourcegraph.Position(3, 4)),
+                range: new stubAPI.Range(new stubAPI.Position(1, 2), new stubAPI.Position(3, 4)),
             },
         ])
     })
@@ -201,18 +202,18 @@ describe('register()', () => {
         }
         const createConnection = stubTransport(server)
 
-        sourcegraph.workspace.textDocuments = [
+        stubAPI.workspace.textDocuments = [
             {
                 uri: new URL('foo.ts', repoRoot).href,
                 languageId: 'typescript',
                 text: 'console.log("Hello world")',
             },
         ]
-        sourcegraph.workspace.roots = [{ uri: repoRoot }]
+        stubAPI.workspace.roots = [{ uri: repoRoot }]
 
         const documentSelector = [{ language: 'typescript' }]
         await register({
-            sourcegraph: sourcegraph as any,
+            sourcegraph: stubAPI as any,
             transport: createConnection,
             documentSelector,
             logger,
@@ -231,9 +232,9 @@ describe('register()', () => {
             })
         )
 
-        sinon.assert.calledOnce(sourcegraph.languages.registerDefinitionProvider)
+        sinon.assert.calledOnce(stubAPI.languages.registerDefinitionProvider)
 
-        const [selector, provider] = sourcegraph.languages.registerDefinitionProvider.args[0]
+        const [selector, provider] = stubAPI.languages.registerDefinitionProvider.args[0]
         assert.deepStrictEqual(selector, [
             {
                 language: 'typescript',
@@ -241,12 +242,12 @@ describe('register()', () => {
             },
         ])
         const result = await provider.provideDefinition(
-            sourcegraph.workspace.textDocuments[0],
+            stubAPI.workspace.textDocuments[0],
             new sourcegraph.Position(0, 2)
         )
         sinon.assert.calledOnce(server['textDocument/definition'])
         sinon.assert.calledWith(server['textDocument/definition'], {
-            textDocument: { uri: sourcegraph.workspace.textDocuments[0].uri },
+            textDocument: { uri: stubAPI.workspace.textDocuments[0].uri },
             position: { line: 0, character: 2 },
         })
         assert.deepStrictEqual(result, [
@@ -274,18 +275,18 @@ describe('register()', () => {
         }
         const createConnection = stubTransport(server)
 
-        sourcegraph.workspace.textDocuments = [
+        stubAPI.workspace.textDocuments = [
             {
                 uri: repoRoot + '#foo.ts',
                 languageId: 'typescript',
                 text: 'console.log("Hello world")',
             },
         ]
-        sourcegraph.workspace.roots = [{ uri: repoRoot }]
+        stubAPI.workspace.roots = [{ uri: repoRoot }]
 
         const documentSelector = [{ language: 'typescript' }]
         await register({
-            sourcegraph: sourcegraph as any,
+            sourcegraph: stubAPI as any,
             transport: createConnection,
             documentSelector,
             logger,
@@ -306,9 +307,9 @@ describe('register()', () => {
         )
 
         // Assert hover provider was registered
-        sinon.assert.calledOnce(sourcegraph.languages.registerHoverProvider)
+        sinon.assert.calledOnce(stubAPI.languages.registerHoverProvider)
 
-        const [selector, hoverProvider] = sourcegraph.languages.registerHoverProvider.args[0]
+        const [selector, hoverProvider] = stubAPI.languages.registerHoverProvider.args[0]
         assert.deepStrictEqual(selector, [
             {
                 language: 'typescript',
@@ -320,12 +321,12 @@ describe('register()', () => {
             },
         ])
         const result = await hoverProvider.provideHover(
-            sourcegraph.workspace.textDocuments[0],
+            stubAPI.workspace.textDocuments[0],
             new sourcegraph.Position(0, 2)
         )
         sinon.assert.calledOnce(server['textDocument/hover'])
         sinon.assert.calledWith(server['textDocument/hover'], {
-            textDocument: { uri: sourcegraph.workspace.textDocuments[0].uri },
+            textDocument: { uri: stubAPI.workspace.textDocuments[0].uri },
             position: { line: 0, character: 2 },
         })
         assert.deepStrictEqual(result, {
