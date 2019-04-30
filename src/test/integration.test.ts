@@ -128,7 +128,7 @@ describe('register()', () => {
                 uri: new URL('foo.ts', repoRoot).href,
                 languageId: 'typescript',
                 text: 'console.log("Hello world")',
-            },
+            } as sourcegraph.TextDocument, // TODO missing methods, add createStubTextDocument() to @sourcegraph/extension-api-stubs
         ]
         stubAPI.workspace.roots = [{ uri: repoRoot }]
 
@@ -207,7 +207,7 @@ describe('register()', () => {
                 uri: new URL('foo.ts', repoRoot).href,
                 languageId: 'typescript',
                 text: 'console.log("Hello world")',
-            },
+            } as sourcegraph.TextDocument,
         ]
         stubAPI.workspace.roots = [{ uri: repoRoot }]
 
@@ -280,7 +280,7 @@ describe('register()', () => {
                 uri: repoRoot + '#foo.ts',
                 languageId: 'typescript',
                 text: 'console.log("Hello world")',
-            },
+            } as sourcegraph.TextDocument,
         ]
         stubAPI.workspace.roots = [{ uri: repoRoot }]
 

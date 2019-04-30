@@ -53,7 +53,7 @@
   "devDependencies": {
     "@commitlint/cli": "^7.2.1",
     "@commitlint/config-conventional": "^7.1.2",
-    "@sourcegraph/extension-api-stubs": "^0.1.0",
+    "@sourcegraph/extension-api-stubs": "^0.1.1",
     "@sourcegraph/prettierrc": "^2.2.0",
     "@sourcegraph/tsconfig": "^4.0.0",
     "@sourcegraph/tslint-config": "^13.0.0",
@@ -77,7 +77,7 @@
     "@sourcegraph/vscode-ws-jsonrpc": "^0.0.3-fork",
     "lodash": "^4.17.11",
     "rxjs": "^6.4.0",
-    "sourcegraph": "^23.0.0",
+    "sourcegraph": "^23.0.1",
     "type-zoo": "^3.2.1",
     "uuid": "^3.3.2",
     "vscode-languageserver-protocol": "^3.14.1",
