@@ -1,4 +1,4 @@
-import { createStubSourcegraphAPI } from '@sourcegraph/extension-api-stubs'
+import { createStubSourcegraphAPI, createStubTextDocument } from '@sourcegraph/extension-api-stubs'
 import mock from 'mock-require'
 const stubAPI = createStubSourcegraphAPI()
 // For modules importing Range/Location/Position/URI/etc
@@ -124,11 +124,11 @@ describe('register()', () => {
         const createConnection = stubTransport(server)
 
         stubAPI.workspace.textDocuments = [
-            {
+            createStubTextDocument({
                 uri: new URL('foo.ts', repoRoot).href,
                 languageId: 'typescript',
                 text: 'console.log("Hello world")',
-            } as sourcegraph.TextDocument, // TODO missing methods, add createStubTextDocument() to @sourcegraph/extension-api-stubs
+            }),
         ]
         stubAPI.workspace.roots = [{ uri: repoRoot }]
 
@@ -203,11 +203,11 @@ describe('register()', () => {
         const createConnection = stubTransport(server)
 
         stubAPI.workspace.textDocuments = [
-            {
+            createStubTextDocument({
                 uri: new URL('foo.ts', repoRoot).href,
                 languageId: 'typescript',
                 text: 'console.log("Hello world")',
-            } as sourcegraph.TextDocument,
+            }),
         ]
         stubAPI.workspace.roots = [{ uri: repoRoot }]
 
@@ -276,11 +276,11 @@ describe('register()', () => {
         const createConnection = stubTransport(server)
 
         stubAPI.workspace.textDocuments = [
-            {
+            createStubTextDocument({
                 uri: repoRoot + '#foo.ts',
                 languageId: 'typescript',
                 text: 'console.log("Hello world")',
-            } as sourcegraph.TextDocument,
+            }),
         ]
         stubAPI.workspace.roots = [{ uri: repoRoot }]
 
