@@ -157,7 +157,7 @@ export async function register({
 
     async function connect(
         clientRootUri: URL | null,
-        initParams: InitializeParams & { originalRootUri?: string | null }
+        initParams: InitializeParams
     ): Promise<LSPConnection> {
         const subscriptions = new Subscription()
         const decorationType = sourcegraph.app.createDecorationType()
@@ -302,7 +302,6 @@ export async function register({
                 rootUri: null,
                 capabilities: clientCapabilities,
                 workspaceFolders: sourcegraph.workspace.roots.map(toLSPWorkspaceFolder({ clientToServerURI })),
-                originalRootUri: null,
                 initializationOptions: additionalInitializationOptions,
             }
         )
@@ -371,7 +370,6 @@ export async function register({
                 {
                     processId: null,
                     rootUri: serverRootUri.href,
-                    originalRootUri: workspaceFolder.href,
                     capabilities: clientCapabilities,
                     workspaceFolders: null,
                     initializationOptions: additionalInitializationOptions,
@@ -394,7 +392,6 @@ export async function register({
                             new URL(root.uri.toString()),
                             {
                                 processId: null,
-                                originalRootUri: root.uri.toString(),
                                 rootUri: serverRootUri.href,
                                 capabilities: clientCapabilities,
                                 workspaceFolders: null,
