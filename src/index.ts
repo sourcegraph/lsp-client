@@ -76,6 +76,7 @@ export interface RegisterOptions {
     logger?: Logger
     transport: () => Promise<LSPConnection> | LSPConnection
     documentSelector: DocumentSelector
+    initializationOptions?: any
 }
 export async function register({
     sourcegraph,
@@ -87,6 +88,7 @@ export async function register({
     afterInitialize = noop,
     transport: createConnection,
     documentSelector,
+    initializationOptions,
 }: RegisterOptions): Promise<LSPClient> {
     const subscriptions = new Subscription()
     // tslint:disable-next-line:no-object-literal-type-assertion
@@ -292,6 +294,7 @@ export async function register({
                 rootUri: null,
                 capabilities: clientCapabilities,
                 workspaceFolders: sourcegraph.workspace.roots.map(toLSPWorkspaceFolder({ clientToServerURI })),
+                initializationOptions,
             }
         )
         subscriptions.add(connection)
@@ -361,6 +364,7 @@ export async function register({
                     rootUri: serverRootUri.href,
                     capabilities: clientCapabilities,
                     workspaceFolders: null,
+                    initializationOptions,
                 }
             )
             subscriptions.add(connection)
@@ -383,6 +387,7 @@ export async function register({
                                 rootUri: serverRootUri.href,
                                 capabilities: clientCapabilities,
                                 workspaceFolders: null,
+                                initializationOptions,
                             }
                         )
                         subscriptions.add(connection)
