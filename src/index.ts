@@ -159,7 +159,7 @@ export async function register({
         const subscriptions = new Subscription()
         const decorationType = sourcegraph.app.createDecorationType()
         const connection = await createConnection()
-        logger.log(`WebSocket connection to TypeScript backend opened`)
+        logger.log(`WebSocket connection to language server opened`)
         subscriptions.add(
             connection.observeNotification(LogMessageNotification.type).subscribe(({ type, message }) => {
                 const method = LSP_TO_LOG_LEVEL[type]
