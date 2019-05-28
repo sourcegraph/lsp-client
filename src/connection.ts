@@ -34,7 +34,7 @@ export const webSocketTransport = ({
         .pipe(take(1))
         .toPromise()
     if (event.type === 'error') {
-        throw new Error(`The WebSocket to the TypeScript backend at ${serverUrl} could not not be opened`)
+        throw new Error(`The WebSocket to the language server at ${serverUrl} could not not be opened`)
     }
     const rpcWebSocket = toSocket(socket)
     const connection = createMessageConnection(
@@ -43,7 +43,7 @@ export const webSocketTransport = ({
         logger
     )
     socket.addEventListener('close', event => {
-        logger.warn('WebSocket connection to TypeScript backend closed', event)
+        logger.warn('WebSocket connection to language server closed', event)
         connection.dispose()
     })
     socket.addEventListener('error', event => {
