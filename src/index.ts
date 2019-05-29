@@ -155,7 +155,15 @@ export async function register({
         }
     }
 
-    async function connect(clientRootUri: URL | null, initParams: InitializeParams): Promise<LSPConnection> {
+    async function connect({
+        clientRootUri,
+        initParams,
+        registerProviders = false,
+    }: {
+        clientRootUri: URL | null
+        initParams: InitializeParams
+        registerProviders?: boolean
+    }): Promise<LSPConnection> {
         const subscriptions = new Subscription()
         const decorationType = sourcegraph.app.createDecorationType()
         const connection = await createConnection()
@@ -258,28 +266,39 @@ export async function register({
                     }
                 })
         )
-        await initializeConnection(connection, clientRootUri, initParams)
+        await initializeConnection({ connection, clientRootUri, initParams, registerProviders })
         return connection
     }
 
-    async function initializeConnection(
-        connection: LSPConnection,
-        clientRootUri: URL | null,
+    async function initializeConnection({
+        connection,
+        clientRootUri,
+        initParams,
+        registerProviders,
+    }: {
+        connection: LSPConnection
+        clientRootUri: URL | null
         initParams: InitializeParams
-    ): Promise<void> {
+        registerProviders: boolean
+    }): Promise<void> {
         const initializeResult = await connection.sendRequest(InitializeRequest.type, initParams)
         // Tell language server about all currently open text documents under this root
         syncTextDocuments(connection)
 
-        // Convert static capabilities to dynamic registrations
-        const staticRegistrations = staticRegistrationsFromCapabilities(initializeResult.capabilities, documentSelector)
+        if (registerProviders) {
+            // Convert static capabilities to dynamic registrations
+            const staticRegistrations = staticRegistrationsFromCapabilities(
+                initializeResult.capabilities,
+                documentSelector
+            )
 
-        // Listen for dynamic capabilities
-        connection.setRequestHandler(RegistrationRequest.type, params => {
-            registerCapabilities(connection, clientRootUri, params.registrations)
-        })
-        // Register static capabilities
-        registerCapabilities(connection, clientRootUri, staticRegistrations)
+            // Listen for dynamic capabilities
+            connection.setRequestHandler(RegistrationRequest.type, params => {
+                registerCapabilities(connection, clientRootUri, params.registrations)
+            })
+            // Register static capabilities
+            registerCapabilities(connection, clientRootUri, staticRegistrations)
+        }
 
         await afterInitialize(initializeResult)
     }
@@ -287,12 +306,16 @@ export async function register({
     let withConnection: <R>(workspaceFolder: URL, fn: (connection: LSPConnection) => Promise<R>) => Promise<R>
 
     if (supportsWorkspaceFolders) {
-        const connection = await connect(null, {
-            processId: null,
-            rootUri: null,
-            capabilities: clientCapabilities,
-            workspaceFolders: sourcegraph.workspace.roots.map(toLSPWorkspaceFolder({ clientToServerURI })),
-            initializationOptions,
+        const connection = await connect({
+            clientRootUri: null,
+            initParams: {
+                processId: null,
+                rootUri: null,
+                capabilities: clientCapabilities,
+                workspaceFolders: sourcegraph.workspace.roots.map(toLSPWorkspaceFolder({ clientToServerURI })),
+                initializationOptions,
+            },
+            registerProviders: true
         })
         subscriptions.add(connection)
         withConnection = async (workspaceFolder, fn) => {
@@ -356,12 +379,15 @@ export async function register({
                 return await fn(connection)
             }
             const serverRootUri = clientToServerURI(workspaceFolder)
-            connection = await connect(workspaceFolder, {
-                processId: null,
-                rootUri: serverRootUri.href,
-                capabilities: clientCapabilities,
-                workspaceFolders: null,
-                initializationOptions,
+            connection = await connect({
+                clientRootUri: workspaceFolder,
+                initParams: {
+                    processId: null,
+                    rootUri: serverRootUri.href,
+                    capabilities: clientCapabilities,
+                    workspaceFolders: null,
+                    initializationOptions,
+                },
             })
             subscriptions.add(connection)
             try {
@@ -376,12 +402,16 @@ export async function register({
                 const connectionPromise = (async () => {
                     try {
                         const serverRootUri = clientToServerURI(new URL(root.uri.toString()))
-                        const connection = await connect(new URL(root.uri.toString()), {
-                            processId: null,
-                            rootUri: serverRootUri.href,
-                            capabilities: clientCapabilities,
-                            workspaceFolders: null,
-                            initializationOptions,
+                        const connection = await connect({
+                            clientRootUri: new URL(root.uri.toString()),
+                            initParams: {
+                                processId: null,
+                                rootUri: serverRootUri.href,
+                                capabilities: clientCapabilities,
+                                workspaceFolders: null,
+                                initializationOptions,
+                            },
+                            registerProviders: true
                         })
                         subscriptions.add(connection)
                         return connection
