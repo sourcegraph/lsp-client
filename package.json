@@ -58,7 +58,7 @@
     "@sourcegraph/tsconfig": "^4.0.0",
     "@sourcegraph/tslint-config": "^13.0.0",
     "@types/lodash": "4.14.133",
-    "@types/mocha": "5.2.6",
+    "@types/mocha": "5.2.7",
     "@types/mock-require": "2.0.0",
     "@types/sinon": "7.0.11",
     "@types/uuid": "3.4.4",
