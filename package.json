@@ -75,7 +75,7 @@
   },
   "dependencies": {
     "@sourcegraph/vscode-ws-jsonrpc": "^0.0.3-fork",
-    "lodash": "^4.17.11",
+    "lodash": "^4.17.15",
     "rxjs": "^6.4.0",
     "sourcegraph": "^23.0.1",
     "type-zoo": "^3.2.1",
