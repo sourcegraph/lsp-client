@@ -50,6 +50,9 @@ export function convertHover(sourcegraph: typeof import('sourcegraph'), hover: H
                     if (!content.value) {
                         return ''
                     }
+                    if (content.language === 'markdown') {
+                        return content.value
+                    }
                     return '```' + content.language + '\n' + content.value + '\n```'
                 })
                 .filter(str => !!str.trim())
