@@ -120,7 +120,7 @@ export async function register({
                 textDocument: {
                     uri: serverTextDocumentUri.href,
                     languageId: textDocument.languageId,
-                    text: textDocument.text || '', // TODO try to fetch contents from somewhere
+                    text: textDocument.text ?? '', // TODO try to fetch contents from somewhere
                     version: 1,
                 },
             }
@@ -209,7 +209,7 @@ export async function register({
             sourcegraph.workspace.openedTextDocuments.subscribe(() => {
                 for (const appWindow of sourcegraph.app.windows) {
                     for (const viewComponent of appWindow.visibleViewComponents) {
-                        const diagnostics = diagnosticsByUri.get(viewComponent.document.uri) || []
+                        const diagnostics = diagnosticsByUri.get(viewComponent.document.uri) ?? []
                         viewComponent.setDecorations(
                             decorationType,
                             diagnostics.map(d => convertDiagnosticToDecoration(sourcegraph, d))

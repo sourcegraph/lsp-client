@@ -88,7 +88,7 @@ export const convertDiagnosticToDecoration = (
     diagnostic: Diagnostic
 ): sourcegraph.TextDocumentDecoration => ({
     after: {
-        color: DIAGNOSTIC_COLORS[diagnostic.severity || DiagnosticSeverity.Hint],
+        color: DIAGNOSTIC_COLORS[diagnostic.severity ?? DiagnosticSeverity.Hint],
         contentText: diagnostic.message,
     },
     range: convertRange(sourcegraph, diagnostic.range),
