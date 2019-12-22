@@ -58,10 +58,7 @@ export const webSocketTransport = ({
         get closed(): boolean {
             return socket.readyState === WebSocket.CLOSED || socket.readyState === WebSocket.CLOSING
         },
-        closeEvent: fromEvent<Event>(socket, 'close').pipe(
-            mapTo(undefined),
-            take(1)
-        ),
+        closeEvent: fromEvent<Event>(socket, 'close').pipe(mapTo(undefined), take(1)),
         sendRequest: async (type, params) => connection.sendRequest(type, params),
         sendNotification: async (type, params) => connection.sendNotification(type, params),
         setRequestHandler: (type, handler) => connection.onRequest(type, handler),
