@@ -303,6 +303,7 @@ export async function register({
                 connection.sendNotification(DidChangeWorkspaceFoldersNotification.type, {
                     event: {
                         added: [tempWorkspaceFolder],
+                        removed: [],
                     },
                 })
             }
@@ -313,6 +314,7 @@ export async function register({
                 if (tempWorkspaceFolder) {
                     connection.sendNotification(DidChangeWorkspaceFoldersNotification.type, {
                         event: {
+                            added: [],
                             removed: [tempWorkspaceFolder],
                         },
                     })
