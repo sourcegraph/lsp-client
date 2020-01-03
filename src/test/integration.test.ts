@@ -44,7 +44,10 @@ describe('register()', () => {
             server.initialize,
             sinon.match({
                 rootUri: null,
-                workspaceFolders: [{ name: '', uri: 'git://repo1?rev' }, { name: '', uri: 'git://repo2?rev' }],
+                workspaceFolders: [
+                    { name: '', uri: 'git://repo1?rev' },
+                    { name: '', uri: 'git://repo2?rev' },
+                ],
             })
         )
     })
@@ -109,17 +112,15 @@ describe('register()', () => {
                     },
                 })
             ),
-            'textDocument/references': sinon.spy(
-                (params: ReferenceParams): Location[] => [
-                    {
-                        uri: new URL('bar.ts', repoRoot).href,
-                        range: {
-                            start: { line: 1, character: 2 },
-                            end: { line: 3, character: 4 },
-                        },
+            'textDocument/references': sinon.spy((params: ReferenceParams): Location[] => [
+                {
+                    uri: new URL('bar.ts', repoRoot).href,
+                    range: {
+                        start: { line: 1, character: 2 },
+                        end: { line: 3, character: 4 },
                     },
-                ]
-            ),
+                },
+            ]),
         }
         const createConnection = stubTransport(server)
 

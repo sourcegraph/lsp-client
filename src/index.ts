@@ -120,7 +120,7 @@ export async function register({
                 textDocument: {
                     uri: serverTextDocumentUri.href,
                     languageId: textDocument.languageId,
-                    text: textDocument.text || '', // TODO try to fetch contents from somewhere
+                    text: textDocument.text ?? '', // TODO try to fetch contents from somewhere
                     version: 1,
                 },
             }
@@ -209,7 +209,7 @@ export async function register({
             sourcegraph.workspace.openedTextDocuments.subscribe(() => {
                 for (const appWindow of sourcegraph.app.windows) {
                     for (const viewComponent of appWindow.visibleViewComponents) {
-                        const diagnostics = diagnosticsByUri.get(viewComponent.document.uri) || []
+                        const diagnostics = diagnosticsByUri.get(viewComponent.document.uri) ?? []
                         viewComponent.setDecorations(
                             decorationType,
                             diagnostics.map(d => convertDiagnosticToDecoration(sourcegraph, d))
@@ -287,16 +287,13 @@ export async function register({
     let withConnection: <R>(workspaceFolder: URL, fn: (connection: LSPConnection) => Promise<R>) => Promise<R>
 
     if (supportsWorkspaceFolders) {
-        const connection = await connect(
-            null,
-            {
-                processId: null,
-                rootUri: null,
-                capabilities: clientCapabilities,
-                workspaceFolders: sourcegraph.workspace.roots.map(toLSPWorkspaceFolder({ clientToServerURI })),
-                initializationOptions,
-            }
-        )
+        const connection = await connect(null, {
+            processId: null,
+            rootUri: null,
+            capabilities: clientCapabilities,
+            workspaceFolders: sourcegraph.workspace.roots.map(toLSPWorkspaceFolder({ clientToServerURI })),
+            initializationOptions,
+        })
         subscriptions.add(connection)
         withConnection = async (workspaceFolder, fn) => {
             let tempWorkspaceFolder: WorkspaceFolder | undefined
@@ -306,6 +303,7 @@ export async function register({
                 connection.sendNotification(DidChangeWorkspaceFoldersNotification.type, {
                     event: {
                         added: [tempWorkspaceFolder],
+                        removed: [],
                     },
                 })
             }
@@ -316,6 +314,7 @@ export async function register({
                 if (tempWorkspaceFolder) {
                     connection.sendNotification(DidChangeWorkspaceFoldersNotification.type, {
                         event: {
+                            added: [],
                             removed: [tempWorkspaceFolder],
                         },
                     })
@@ -357,16 +356,13 @@ export async function register({
                 return await fn(connection)
             }
             const serverRootUri = clientToServerURI(workspaceFolder)
-            connection = await connect(
-                workspaceFolder,
-                {
-                    processId: null,
-                    rootUri: serverRootUri.href,
-                    capabilities: clientCapabilities,
-                    workspaceFolders: null,
-                    initializationOptions,
-                }
-            )
+            connection = await connect(workspaceFolder, {
+                processId: null,
+                rootUri: serverRootUri.href,
+                capabilities: clientCapabilities,
+                workspaceFolders: null,
+                initializationOptions,
+            })
             subscriptions.add(connection)
             try {
                 return await fn(connection)
@@ -380,16 +376,13 @@ export async function register({
                 const connectionPromise = (async () => {
                     try {
                         const serverRootUri = clientToServerURI(new URL(root.uri.toString()))
-                        const connection = await connect(
-                            new URL(root.uri.toString()),
-                            {
-                                processId: null,
-                                rootUri: serverRootUri.href,
-                                capabilities: clientCapabilities,
-                                workspaceFolders: null,
-                                initializationOptions,
-                            }
-                        )
+                        const connection = await connect(new URL(root.uri.toString()), {
+                            processId: null,
+                            rootUri: serverRootUri.href,
+                            capabilities: clientCapabilities,
+                            workspaceFolders: null,
+                            initializationOptions,
+                        })
                         subscriptions.add(connection)
                         return connection
                     } catch (err) {

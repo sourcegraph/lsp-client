@@ -66,12 +66,12 @@
     "mocha": "^6.0.0",
     "mock-require": "^3.0.3",
     "nyc": "^13.1.0",
-    "prettier": "^1.16.4",
+    "prettier": "^1.19.1",
     "semantic-release": "^16.0.0-beta.46",
     "sinon": "^7.4.1",
     "ts-node": "^8.0.2",
     "tslint": "^5.20.1",
-    "typescript": "^3.2.2"
+    "typescript": "^3.7.4"
   },
   "dependencies": {
     "@sourcegraph/vscode-ws-jsonrpc": "^0.0.3-fork",

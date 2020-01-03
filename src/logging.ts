@@ -54,7 +54,7 @@ export const redact = (message: string): string => message.replace(/(https?:\/\/
  * Logger that formats the logged values and removes any auth info in URLs.
  */
 export class RedactingLogger extends AbstractLogger {
-    constructor(private logger: Logger) {
+    constructor(private readonly logger: Logger) {
         super()
     }
 
@@ -66,7 +66,7 @@ export class RedactingLogger extends AbstractLogger {
 }
 
 export class PrefixedLogger extends AbstractLogger {
-    constructor(private logger: Logger, private prefix: string) {
+    constructor(private readonly logger: Logger, private readonly prefix: string) {
         super()
     }
 

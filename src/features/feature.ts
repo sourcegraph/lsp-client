@@ -36,6 +36,6 @@ export function scopeDocumentSelectorToRoot(
         .map(filter => ({
             ...filter,
             // TODO filter.pattern needs to be run resolved relative to server root URI before mounting on clientRootUri
-            pattern: new URL(filter.pattern || '**', clientRootUri).href,
+            pattern: new URL(filter.pattern ?? '**', clientRootUri).href,
         }))
 }
