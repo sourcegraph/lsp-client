@@ -54,7 +54,7 @@
     "@commitlint/cli": "^8.3.4",
     "@commitlint/config-conventional": "^8.3.4",
     "@sourcegraph/extension-api-stubs": "^0.2.0",
-    "@sourcegraph/prettierrc": "^2.2.0",
+    "@sourcegraph/prettierrc": "^3.0.0",
     "@sourcegraph/tsconfig": "^4.0.0",
     "@sourcegraph/tslint-config": "^13.3.0",
     "@types/lodash": "4.14.149",
