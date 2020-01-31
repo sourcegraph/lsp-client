@@ -158,11 +158,11 @@ export async function register({
     async function connect({
         clientRootUri,
         initParams,
-        registerProviders = false,
+        registerProviders,
     }: {
         clientRootUri: URL | null
         initParams: InitializeParams
-        registerProviders?: boolean
+        registerProviders: boolean
     }): Promise<LSPConnection> {
         const subscriptions = new Subscription()
         const decorationType = sourcegraph.app.createDecorationType()
@@ -388,6 +388,7 @@ export async function register({
                     workspaceFolders: null,
                     initializationOptions,
                 },
+                registerProviders: false
             })
             subscriptions.add(connection)
             try {
