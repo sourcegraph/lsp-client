@@ -315,7 +315,7 @@ export async function register({
                 workspaceFolders: sourcegraph.workspace.roots.map(toLSPWorkspaceFolder({ clientToServerURI })),
                 initializationOptions,
             },
-            registerProviders: true
+            registerProviders: true,
         })
         subscriptions.add(connection)
         withConnection = async (workspaceFolder, fn) => {
@@ -388,7 +388,7 @@ export async function register({
                     workspaceFolders: null,
                     initializationOptions,
                 },
-                registerProviders: false
+                registerProviders: false,
             })
             subscriptions.add(connection)
             try {
@@ -412,7 +412,7 @@ export async function register({
                                 workspaceFolders: null,
                                 initializationOptions,
                             },
-                            registerProviders: true
+                            registerProviders: true,
                         })
                         subscriptions.add(connection)
                         return connection
