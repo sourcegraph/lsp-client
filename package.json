@@ -78,7 +78,7 @@
     "lodash": "^4.17.15",
     "rxjs": "^6.4.0",
     "sourcegraph": "^23.1.0",
-    "type-zoo": "^3.2.1",
+    "type-zoo": "^3.4.1",
     "uuid": "^3.3.2",
     "vscode-languageserver-protocol": "^3.14.1",
     "vscode-languageserver-types": "^3.14.0"
