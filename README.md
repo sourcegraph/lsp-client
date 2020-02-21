@@ -1,3 +1,7 @@
+# Archive
+
+https://github.com/sourcegraph/sourcegraph-basic-code-intel/
+
 # @sourcegraph/lsp-client
 
 [![npm](https://img.shields.io/npm/v/@sourcegraph/lsp-client.svg)](https://www.npmjs.com/package/@sourcegraph/lsp-client)
